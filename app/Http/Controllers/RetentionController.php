@@ -2,88 +2,109 @@
 
 namespace App\Http\Controllers;
 
-use App\Http\Controllers\Controller;
 use App\Models\Patient;
-use App\Models\RetentionAction;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Storage; // Tambahkan ini
+use Illuminate\Support\Facades\DB;
+use Illuminate\Pagination\LengthAwarePaginator;
+use Illuminate\Pagination\Paginator;
 
 class RetentionController extends Controller
 {
-    // ... Function index() TETAP SAMA ...
+    /**
+     * Menampilkan data pasien yang masuk kriteria Retensi (Inaktif & Siap Musnah)
+     */
     public function index(Request $request)
     {
-        // ... (Kode index sama seperti sebelumnya) ...
-        // Agar singkat, saya tidak tulis ulang bagian index yg panjang ini
-        // Pastikan variabel $paginatedPatients dan $stats tetap ada
-        $patients = Patient::with('lastVisit')->latest()->get();
+        // 1. Ambil data pasien beserta riwayat kunjungannya
+        $query = Patient::with('visits');
 
-        if ($request->filled('status')) {
-            $statusFilter = $request->status;
-            if ($statusFilter == 'Verified') {
-                $verifiedIds = RetentionAction::where('action_type', 'verifikasi_fisik')->pluck('patient_id')->toArray();
-                $patients = $patients->whereIn('id', $verifiedIds);
-            } else {
-                $patients = $patients->filter(function ($patient) use ($statusFilter) {
-                    return $patient->current_status === $statusFilter;
-                });
-            }
+        // 2. Logika Pencarian (No RM atau Nama)
+        if ($request->filled('search')) {
+            $search = $request->search;
+            $query->where(function($q) use ($search) {
+                $q->where('nama_pasien', 'like', "%{$search}%")
+                  ->orWhere('no_rm', 'like', "%{$search}%");
+            });
         }
 
-        $stats = [
-            'total_inaktif' => $patients->where('current_status', 'Inaktif')->count(),
-            'siap_musnah'   => $patients->where('current_status', 'Siap Musnah')->count(),
-        ];
+        // 3. Ambil data ke Collection untuk filter berdasarkan Accessor 'current_status'
+        $patients = $query->get();
 
+        // 4. Filter Status: Hanya tampilkan Inaktif dan Siap Musnah
+        $patients = $patients->filter(function ($patient) {
+            $status = $patient->current_status;
+            return $status === 'Inaktif' || $status === 'Siap Musnah';
+        });
+
+        // 5. Filter Dropdown (Jika user memilih Inaktif saja atau Siap Musnah saja)
+        if ($request->filled('status_retensi')) {
+            $statusFilter = $request->status_retensi;
+            $patients = $patients->filter(function ($patient) use ($statusFilter) {
+                return $patient->current_status === $statusFilter;
+            });
+        }
+
+        // 6. Logika Pengurutan (Berdasarkan Kunjungan Terakhir)
+        $sortOrder = $request->get('sort_order', 'desc');
+        $patients = $patients->sortBy(function($patient) {
+            return $patient->lastVisit ? $patient->lastVisit->tgl_kunjungan : null;
+        }, SORT_REGULAR, ($sortOrder === 'desc'));
+
+        // 7. Manual Pagination (Karena data difilter dari Collection)
         $perPage = 10;
-        $currentPage = \Illuminate\Pagination\Paginator::resolveCurrentPage();
+        $currentPage = Paginator::resolveCurrentPage() ?: 1;
         $currentItems = $patients->slice(($currentPage - 1) * $perPage, $perPage)->all();
-        $paginatedPatients = new \Illuminate\Pagination\LengthAwarePaginator($currentItems, count($patients), $perPage);
-        $paginatedPatients->setPath($request->url());
+        
+        $patients = new LengthAwarePaginator(
+            $currentItems, 
+            $patients->count(), 
+            $perPage, 
+            $currentPage, 
+            ['path' => Paginator::resolveCurrentPath()]
+        );
 
-        return view('retention.index', compact('paginatedPatients', 'stats'));
+        return view('retention.index', compact('patients'));
     }
 
-    // UPDATE: LOGIKA UPLOAD & VERIFIKASI
-    public function verifyPhysical(Request $request, $id)
+    /**
+     * Menangani Aksi Massal (Bulk Action)
+     */
+    public function bulkAction(Request $request)
     {
-        // 1. Validasi File
-        $request->validate([
-            'file_nilai_guna' => 'required|file|mimes:pdf,jpg,jpeg,png|max:5120', // Max 5MB
-        ]);
+        $ids = explode(',', $request->ids);
+        $action = $request->action_type;
 
-        // 2. Upload File
-        $filePath = null;
-        if ($request->hasFile('file_nilai_guna')) {
-            // Simpan di folder: storage/app/public/nilai_guna
-            $filePath = $request->file('file_nilai_guna')->store('nilai_guna', 'public');
+        if (empty($ids) || !$action) {
+            return back()->with('error', 'Tidak ada data atau tindakan yang dipilih.');
         }
 
-        // 3. Simpan ke Database
-        RetentionAction::create([
-            'patient_id'  => $id,
-            'user_id'     => auth()->id(),
-            'action_type' => 'verifikasi_fisik',
-            'keterangan'  => 'Berkas dinilai guna & diverifikasi.',
-            'file_path'   => $filePath, // Simpan path
-        ]);
+        try {
+            DB::beginTransaction();
 
-        return back()->with('success', 'Nilai guna berhasil diupload & diverifikasi.');
-    }
-    
-    // ... Function moveToDestruction() TETAP SAMA ...
-    public function moveToDestruction($id)
-    {
-        $patient = Patient::findOrFail($id);
-        $patient->update(['manual_status' => 'siap_musnah']);
+            switch ($action) {
+                case 'pindahkan':
+                    // Logika memindahkan ke status 'Siap Musnah' secara manual
+                    // Asumsi kita menggunakan kolom 'manual_status' di tabel patients
+                    Patient::whereIn('id', $ids)->update(['manual_status' => 'siap_musnah']);
+                    $message = count($ids) . " berkas berhasil dipindahkan ke status SIAP MUSNAH.";
+                    break;
 
-        RetentionAction::create([
-            'patient_id'  => $id,
-            'user_id'     => auth()->id(),
-            'action_type' => 'ajukan_musnah',
-            'keterangan'  => 'Berkas dipindahkan ke daftar siap musnah.'
-        ]);
-        
-        return back()->with('success', 'Berkas dipindahkan ke daftar SIAP MUSNAH.');
+                case 'nilai_guna':
+                    // Menandai bahwa berkas ini memiliki nilai guna (tidak boleh dimusnahkan)
+                    Patient::whereIn('id', $ids)->update(['manual_status' => 'nilai_guna']);
+                    $message = count($ids) . " berkas ditandai memiliki NILAI GUNA.";
+                    break;
+
+                default:
+                    return back()->with('error', 'Tindakan tidak dikenal.');
+            }
+
+            DB::commit();
+            return back()->with('success', $message);
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return back()->with('error', 'Terjadi kesalahan: ' . $e->getMessage());
+        }
     }
 }

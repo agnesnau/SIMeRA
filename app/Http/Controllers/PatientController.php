@@ -2,35 +2,39 @@
 
 namespace App\Http\Controllers;
 
-use App\Http\Controllers\Controller;
 use App\Models\Patient;
 use App\Models\Visit;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Maatwebsite\Excel\Facades\Excel;
 use App\Imports\PatientsImport;
 
 class PatientController extends Controller
 {
-    // ==========================================
-    // DATA WILAYAH (Bisa dipindah ke Config/Database nanti)
-    // ==========================================
-    private $nama_kecamatan = 'Sumbersari'; // Sesuaikan dengan Puskesmas kamu
-    private $daftar_desa = [
-        'Kel. Sumbersari',
-        'Kel. Karangrejo',
-        'Kel. Kebonsari',
-        'Kel. Wirolegi',
-        'Kel. Antirogo',
-        'Kel. Tegalgede',
-        'Kel. Kranjingan',
-        'Luar Wilayah'
-    ];
+    /**
+     * Pengaturan Hak Akses: Membatasi Kepala Puskesmas agar View Only
+     */
+    public function __construct()
+    {
+        $this->middleware(function ($request, $next) {
+            $restrictedActions = ['create', 'store', 'edit', 'update', 'destroy', 'import', 'bulkAction'];
+            
+            if (auth()->user()->level === 'kepala' && in_array($request->route()->getActionMethod(), $restrictedActions)) {
+                return redirect()->route('patients.index')->with('error', 'Akses Ditolak! Kepala Puskesmas hanya memiliki hak akses Lihat Data (View Only).');
+            }
 
+            return $next($request);
+        });
+    }
+
+    /**
+     * Tampilan Utama dengan Pencarian dan Filter Status
+     */
     public function index(Request $request)
     {
         $query = Patient::with('visits');
 
-        // Fitur Pencarian
         if ($request->filled('search')) {
             $search = $request->search;
             $query->where(function($q) use ($search) {
@@ -40,19 +44,17 @@ class PatientController extends Controller
             });
         }
 
-        // Ambil data terbaru
+        // Ambil semua data dulu untuk difilter berdasarkan Accessor 'current_status'
         $patients = $query->latest()->get(); 
 
-        // Filter Status (Manual Collection Filter)
         if ($request->filled('status')) {
             $statusFilter = $request->status;
             $patients = $patients->filter(function ($patient) use ($statusFilter) {
-                // Pastikan di Model Patient ada accessor 'getCurrentStatusAttribute'
                 return strtolower($patient->current_status) === strtolower($statusFilter);
             });
         }
 
-        // Pagination Manual (Karena kita pakai filter collection di atas)
+        // Manual Pagination karena difilter dari Collection
         $perPage = 10;
         $currentPage = \Illuminate\Pagination\Paginator::resolveCurrentPage();
         $currentItems = $patients->slice(($currentPage - 1) * $perPage, $perPage)->all();
@@ -62,101 +64,53 @@ class PatientController extends Controller
         return view('patients.index', compact('patients'));
     }
 
-    // --- REVISI BAGIAN CREATE ---
     public function create() 
     { 
-        // Kita kirim data wilayah ke View biar jadi Dropdown
-        $kecamatan = $this->nama_kecamatan;
-        $daftar_desa = $this->daftar_desa;
-
-        return view('patients.create', compact('kecamatan', 'daftar_desa')); 
+        return view('patients.create'); 
     }
 
-    // --- REVISI BAGIAN STORE ---
-    public function store(Request $request) {
+    public function store(Request $request) 
+    {
         $request->validate([
-            'no_rm'           => 'required|unique:patients,no_rm', 
-            'nik'             => 'required|numeric|digits:16|unique:patients,nik', // Tambah validasi NIK
-            'nama_pasien'     => 'required|string|max:100', 
-            'tgl_lahir'       => 'required|date', 
-            'jenis_kelamin'   => 'required|in:L,P',
-            
-            // Validasi Alamat Baru
-            'alamat_jalan'    => 'required|string',
-            'desa_kelurahan'  => 'required|string',
-            'kecamatan'       => 'required|string',
+            'no_rm' => 'required|unique:patients,no_rm', 
+            'nama_pasien' => 'required', 
+            'tgl_lahir' => 'required|date', 
+            'jenis_kelamin' => 'required'
         ]);
-
-        // Tentukan Kategori Wilayah Otomatis
-        $data = $request->all();
-        if ($request->desa_kelurahan == 'Luar Wilayah') {
-            $data['kategori_wilayah'] = 'luar_wilayah';
-        } else {
-            $data['kategori_wilayah'] = 'dalam_wilayah';
-        }
-
-        Patient::create($data);
         
+        Patient::create($request->all());
         return redirect()->route('patients.index')->with('success', 'Pasien berhasil ditambahkan');
     }
 
-    // --- REVISI BAGIAN EDIT ---
-    public function edit($id)
+    public function edit($id) 
     {
         $patient = Patient::findOrFail($id);
-        
-        // Kirim data desa juga ke halaman Edit, biar dropdown-nya muncul
-        $kecamatan = $this->nama_kecamatan;
-        $daftar_desa = $this->daftar_desa;
-
-        return view('patients.edit', compact('patient', 'kecamatan', 'daftar_desa'));
+        return view('patients.edit', compact('patient'));
     }
 
-    // --- REVISI BAGIAN UPDATE ---
-    public function update(Request $request, $id)
+    public function update(Request $request, $id) 
     {
         $patient = Patient::findOrFail($id);
-
         $request->validate([
-            'no_rm'           => 'required|string|unique:patients,no_rm,'.$id,
-            'nik'             => 'required|digits:16|unique:patients,nik,'.$id,
-            'nama_pasien'     => 'required|string|max:255',
-            'tgl_lahir'       => 'required|date',
-            'jenis_kelamin'   => 'required|in:L,P',
-            
-            // Validasi Alamat
-            'alamat_jalan'    => 'required|string',
-            'desa_kelurahan'  => 'required|string',
+            'no_rm' => 'required|string|unique:patients,no_rm,'.$id,
+            'nama_pasien' => 'required',
+            'tgl_lahir' => 'required|date',
         ]);
+        
+        $patient->update($request->except('tgl_kunjungan_terakhir'));
 
-        $data = $request->except(['tgl_kunjungan_terakhir', '_token', '_method']);
-
-        // Update Kategori Wilayah jika desa berubah
-        if ($request->desa_kelurahan == 'Luar Wilayah') {
-            $data['kategori_wilayah'] = 'luar_wilayah';
-        } else {
-            $data['kategori_wilayah'] = 'dalam_wilayah';
-        }
-
-        // 1. Update Data Profil Pasien
-        $patient->update($data);
-
-        // 2. Update Kunjungan Terakhir (Opsional/Shortcut)
-        if ($request->has('tgl_kunjungan_terakhir') && $request->tgl_kunjungan_terakhir) {
-            $lastVisit = $patient->lastVisit; // Pastikan relasi di Model Patient bernama lastVisit()
-
+        // Logika update atau create kunjungan terakhir secara manual
+        if ($request->filled('tgl_kunjungan_terakhir')) {
+            $lastVisit = $patient->lastVisit;
             if ($lastVisit) {
-                $lastVisit->update([
-                    'tgl_kunjungan' => $request->tgl_kunjungan_terakhir
-                ]);
+                $lastVisit->update(['tgl_kunjungan' => $request->tgl_kunjungan_terakhir]);
             } else {
-                // Buat kunjungan baru jika belum ada history
                 Visit::create([
-                    'patient_id'    => $patient->id,
+                    'no_registrasi' => 'MAN-' . time(),
+                    'patient_id' => $patient->id,
                     'tgl_kunjungan' => $request->tgl_kunjungan_terakhir,
-                    'poli_tujuan'   => 'Umum', // Default dulu
-                    'status'        => 'selesai', // Anggap data lama sudah selesai
-                    'keluhan'       => 'Data Import/Migrasi',
+                    'dokter' => 'Admin Edit',
+                    'user_id' => auth()->id()
                 ]);
             }
         }
@@ -164,33 +118,91 @@ class PatientController extends Controller
         return redirect()->route('patients.index')->with('success', 'Data Pasien diperbarui!');
     }
 
+    /**
+     * Hapus Satuan dengan Proteksi Foreign Key
+     */
     public function destroy($id)
     {
-        $patient = Patient::findOrFail($id);
-        $patient->delete(); // Karena pakai constrained('...')->onDelete('cascade'), data kunjungan ikut terhapus otomatis di DB
-        return redirect()->route('patients.index')->with('success', 'Data Pasien berhasil dihapus!');
+        try {
+            DB::beginTransaction();
+            $patient = Patient::findOrFail($id);
+
+            // 1. Bersihkan tabel anak agar tidak error 1451
+            DB::table('retention_actions')->where('patient_id', $id)->delete();
+            Visit::where('patient_id', $id)->delete();
+
+            // 2. Hapus data utama
+            $patient->delete();
+
+            DB::commit();
+            return back()->with('success', 'Data pasien dan seluruh riwayatnya berhasil dihapus permanen.');
+        } catch (\Exception $e) {
+            DB::rollBack();
+            Log::error("Gagal Hapus Pasien: " . $e->getMessage());
+            return back()->with('error', 'Gagal menghapus data: ' . $e->getMessage());
+        }
     }
 
-    public function import(Request $request) 
+    /**
+     * Import Data dari Excel
+     */
+    public function import(Request $request)
     {
         $request->validate([
-            'file' => 'required|mimes:xlsx,xls,csv'
+            'file' => 'required|mimes:xlsx,xls,csv|max:10240',
         ]);
 
         try {
             Excel::import(new PatientsImport, $request->file('file'));
-            return back()->with('success', 'Data Pasien berhasil diimpor!');
+            return back()->with('success', 'Data Pasien BERHASIL diimpor!');
+        } catch (\Maatwebsite\Excel\Validators\ValidationException $e) {
+            $failures = $e->failures();
+            return back()->withErrors(['file' => 'Gagal Validasi: Cek baris ke-' . $failures[0]->row()]);
         } catch (\Exception $e) {
-            return back()->withErrors(['file' => 'Gagal impor: ' . $e->getMessage()]);
+            return back()->withErrors(['file' => 'Gagal Import: ' . $e->getMessage()]);
         }
     }
-    public function show($id)
-    {
-        // 1. Cari pasien berdasarkan ID
-        $patient = \App\Models\Patient::findOrFail($id);
 
-        // 2. Tampilkan ke halaman detail
-        // Pastikan nanti kamu buat file view-nya di resources/views/patients/show.blade.php
-        return view('patients.show', compact('patient'));
+    /**
+     * Aksi Massal (Hapus/Cetak)
+     */
+    public function bulkAction(Request $request)
+    {
+        if (!$request->has('ids') || !$request->has('action_type')) {
+            return back()->with('error', 'Tidak ada data yang dipilih.');
+        }
+
+        $ids = explode(',', $request->ids);
+        $action = $request->action_type;
+
+        try {
+            DB::beginTransaction();
+
+            switch ($action) {
+                case 'hapus':
+                    // Bersihkan relasi dulu
+                    DB::table('retention_actions')->whereIn('patient_id', $ids)->delete();
+                    Visit::whereIn('patient_id', $ids)->delete();
+                    
+                    // Hapus Pasien
+                    Patient::whereIn('id', $ids)->delete();
+                    $message = count($ids) . " data pasien berhasil dihapus permanen.";
+                    break;
+
+                case 'cetak_kartu':
+                    $message = "Fitur cetak kartu massal sedang disiapkan.";
+                    break;
+
+                default:
+                    return back()->with('error', 'Tindakan tidak dikenal.');
+            }
+
+            DB::commit();
+            return back()->with('success', $message);
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return back()->with('error', 'Kesalahan Aksi Massal: ' . $e->getMessage());
+        }
     }
 }

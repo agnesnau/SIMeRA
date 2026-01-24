@@ -2,35 +2,55 @@
 
 namespace App\Http\Controllers;
 
-use App\Http\Controllers\Controller;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Storage;
 
 class UserController extends Controller
 {
-    // 1. TAMPILKAN DATA
+    // 1. MIDDLEWARE: Pengaman Akses
+    public function __construct()
+    {
+        $this->middleware(function ($request, $next) {
+            $user = auth()->user();
+            $routeId = $request->route('id'); // Ambil ID dari URL
+
+            // IZINKAN jika dia Admin
+            if ($user->level === 'admin') {
+                return $next($request);
+            }
+
+            // IZINKAN jika dia ingin mengedit/update profilnya SENDIRI
+            if (in_array($request->route()->getName(), ['users.edit', 'users.update', 'users.show'])) {
+                if ($user->id == $routeId) {
+                    return $next($request);
+                }
+            }
+
+            return redirect('dashboard')->with('error', 'Otoritas Ditolak! Anda tidak memiliki izin mengelola akun ini.');
+        });
+    }
+
     public function index()
     {
         $users = User::all();
         return view('users.index', compact('users'));
     }
 
-    // 2. FORM TAMBAH
     public function create()
     {
         return view('users.create');
     }
 
-    // 3. SIMPAN DATA BARU
     public function store(Request $request)
     {
         $request->validate([
-            'nip'          => 'required|string|unique:users,nip',
-            'nama_lengkap' => 'required|string|max:255',
-            'username'     => 'required|string|unique:users,username', // Pakai 'string', bukan 'username'
+            'nip'          => 'required|unique:users,nip',
+            'nama_lengkap' => 'required|max:255',
+            'username'     => 'required|unique:users,username',
             'password'     => 'required|min:6',
-            'level'        => 'required|in:admin,petugas,kepala_puskesmas',
+            'level'        => 'required|in:admin,petugas,kepala',
         ]);
 
         User::create([
@@ -41,62 +61,64 @@ class UserController extends Controller
             'level'        => $request->level,
         ]);
 
-        return redirect()->route('users.index')->with('success', 'User berhasil ditambahkan!');
+        return redirect()->route('users.index')->with('success', 'User Baru Berhasil Didaftarkan!');
     }
 
-    // 4. FORM EDIT
     public function edit($id)
     {
         $user = User::findOrFail($id);
         return view('users.edit', compact('user'));
     }
 
-    // 5. UPDATE DATA
-    public function update(Request $request, $id)
+    // PERBAIKAN VITAL DI SINI: Gunakan $id, bukan User $user agar data tidak kosong
+    public function update(Request $request, $id) 
     {
         $user = User::findOrFail($id);
 
         $request->validate([
-            // Validasi Unique kecuali punya diri sendiri (.$id)
-            'nip'          => 'required|string|unique:users,nip,'.$id,
             'nama_lengkap' => 'required|string|max:255',
-            'username'     => 'required|string|unique:users,username,'.$id,
-            'level'        => 'required|in:admin,petugas,kepala_puskesmas',
+            'username'     => 'required|string|max:255|unique:users,username,' . $user->id,
+            'nip'          => 'nullable|string|max:20',
+            'foto'         => 'nullable|image|mimes:jpg,jpeg,png|max:2048',
         ]);
 
-        $data = [
-            'nip'          => $request->nip,
-            'nama_lengkap' => $request->nama_lengkap,
-            'username'     => $request->username,
-            'level'        => $request->level,
-        ];
+        $data = $request->only(['nama_lengkap', 'username', 'nip']);
 
-        // Hanya update password jika diisi
-        if ($request->filled('password')) {
-            $data['password'] = Hash::make($request->password);
+        // Hanya Admin yang bisa ganti level orang lain
+        if (auth()->user()->level === 'admin' && $request->has('level')) {
+            $data['level'] = $request->level;
+        }
+
+        if ($request->hasFile('foto')) {
+            if ($user->foto && Storage::disk('public')->exists($user->foto)) {
+                Storage::disk('public')->delete($user->foto);
+            }
+            $data['foto'] = $request->file('foto')->store('profil', 'public');
         }
 
         $user->update($data);
 
-        return redirect()->route('users.index')->with('success', 'Data user berhasil diperbarui!');
+        // Jika edit profil sendiri, balik ke dashboard. Jika admin edit orang lain, balik ke index.
+        if (auth()->user()->id == $id && auth()->user()->level !== 'admin') {
+            return redirect()->route('dashboard')->with('success', 'Profil SIMeRA Anda Berhasil Diperbarui!');
+        }
+        
+        return redirect()->route('users.index')->with('success', 'Data User Berhasil Diperbarui!');
     }
 
-    // 6. HAPUS DATA
     public function destroy($id)
     {
         $user = User::findOrFail($id);
+        if ($user->foto) {
+            Storage::disk('public')->delete($user->foto);
+        }
         $user->delete();
-        return redirect()->route('users.index')->with('success', 'User berhasil dihapus!');
+        return redirect()->route('users.index')->with('success', 'Akun Pengguna Berhasil Dihapus!');
     }
 
     public function show($id)
     {
-        // 1. Cari user berdasarkan ID
-        $user = \App\Models\User::findOrFail($id);
-
-        // 2. Tampilkan ke halaman detail
-        // Pastikan nanti kamu buat file view-nya di resources/views/users/show.blade.php
+        $user = User::findOrFail($id);
         return view('users.show', compact('user'));
     }
 }
-

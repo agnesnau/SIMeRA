@@ -10,7 +10,7 @@ public function up()
 {
     Schema::create('patients', function (Blueprint $table) {
         $table->id();
-        $table->string('no_rm')->unique();
+        $table->string('no_rm', 10)->unique();
         $table->string('nik', 16)->nullable()->unique();
         $table->string('no_bpjs', 20)->nullable();
         $table->string('nama_pasien');

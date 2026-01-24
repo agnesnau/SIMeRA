@@ -16,12 +16,12 @@ class User extends Authenticatable
      * Jika kolom baru tidak ada di sini, Seeder akan gagal menyimpan data.
      */
     protected $fillable = [
-        'nip',            // <--- Pastikan ini ada
-        'nama_lengkap',   // <--- Pastikan ini ada
-        'username',       // <--- Pastikan ini ada
-        'email',
+        'nama_lengkap',
+        'username',
         'password',
-        'level',          // <--- Pastikan ini ada
+        'level',
+        'nip',
+        'foto', 
     ];
 
     protected $hidden = [

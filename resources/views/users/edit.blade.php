@@ -25,7 +25,7 @@
     @endif
 
     <!-- Form Update (Perhatikan method PUT) -->
-    <form action="{{ route('users.update', $user->id) }}" method="POST">
+    <form action="{{ route('users.update', $user->id) }}" method="POST" enctype="multipart/form-data">
         @csrf
         @method('PUT') 
         
@@ -69,15 +69,29 @@
             </select>
         </div>
 
-        <!-- Tombol Aksi -->
-        <div class="flex justify-end gap-3 pt-4 border-t border-gray-100">
-            <a href="{{ route('users.index') }}" class="px-5 py-2.5 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors font-medium">
-                Batal
-            </a>
-            <button type="submit" class="px-5 py-2.5 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors font-medium shadow-lg shadow-emerald-200">
-                Simpan Perubahan
-            </button>
+        <div class="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm">
+        <label class="block text-xs font-black text-gray-400 uppercase tracking-widest mb-4">Foto Profil Baru</label>
+        
+        <div class="flex items-center gap-6">
+            <div class="w-20 h-20 rounded-2xl bg-emerald-50 border-2 border-dashed border-emerald-200 flex items-center justify-center overflow-hidden">
+                @if($user->foto)
+                    <img src="{{ asset('storage/' . $user->foto) }}" class="w-full h-full object-cover">
+                @else
+                    <svg class="w-8 h-8 text-emerald-200" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clip-rule="evenodd"></path></svg>
+                @endif
+            </div>
+
+            <div class="flex-1">
+                <input type="file" name="foto" class="block w-full text-xs text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-black file:bg-emerald-50 file:text-emerald-700 hover:file:bg-emerald-100 cursor-pointer outline-none">
+                <p class="mt-2 text-[10px] text-gray-400 italic">* Format: JPG, PNG. Maksimal 2MB.</p>
+            </div>
         </div>
-    </form>
+    </div>
+
+    <div class="flex justify-end gap-3">
+        <a href="{{ route('dashboard') }}" class="px-6 py-2.5 bg-gray-100 text-gray-600 rounded-xl text-xs font-bold uppercase">Batal</a>
+        <button type="submit" class="px-6 py-2.5 bg-emerald-600 text-white rounded-xl text-xs font-black uppercase shadow-lg shadow-emerald-200 hover:bg-emerald-700 transition">Simpan Perubahan</button>
+    </div>
+</form>
 </div>
 @endsection

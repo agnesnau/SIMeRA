@@ -31,7 +31,7 @@
                     </div>
                     <h2 class="text-3xl font-bold tracking-tight text-gray-900">Selamat Datang</h2>
                     <p class="mt-2 text-sm text-gray-500">
-                        Masuk untuk mengelola rekam medis & retensi arsip.
+                        Masuk untuk mengelola retensi arsip rekam medis.
                     </p>
                 </div>
 
@@ -95,16 +95,16 @@
         <!-- BAGIAN KANAN: Gambar Full Height -->
         <div class="relative hidden w-0 flex-1 lg:block">
             <!-- Gambar Background -->
-            <img class="absolute inset-0 h-full w-full object-cover" src="https://images.unsplash.com/photo-1586773860418-d37222d8fce3?q=80&w=2073&auto=format&fit=crop" alt="Medical Archive">
+            <img class="absolute inset-0 h-full w-full object-cover" src="img/bg login.jpg" alt="Background Image">
             
             <!-- Gradient Overlay -->
             <div class="absolute inset-0 bg-gradient-to-t from-emerald-900/90 to-emerald-900/40 mix-blend-multiply"></div>
             
             <!-- Text on Image -->
             <div class="absolute bottom-0 left-0 right-0 p-20 text-white">
-                <h2 class="text-4xl font-bold mb-4">Efisiensi Arsip Medis</h2>
+                <h2 class="text-4xl font-bold mb-4">SIMeRA</h2>
                 <p class="text-lg text-emerald-100 max-w-xl">
-                    Sistem informasi terintegrasi untuk manajemen retensi rekam medis, verifikasi fisik, dan pelaporan pemusnahan yang akurat.
+                    Sistem Informasi Manajemen Retensi Arsip Rekam Medis Rawat Jalan Puskesmas Silo 1.
                 </p>
             </div>
         </div>

@@ -39,8 +39,9 @@ Route::middleware(['auth'])->group(function () {
         
         Route::post('patients/import', [PatientController::class, 'import'])->name('patients.import');
         Route::resource('patients', PatientController::class); 
-        
+        Route::post('/patients/bulk-action', [PatientController::class, 'bulkAction'])->name('patients.bulkAction');
         Route::resource('visits', VisitController::class);
+        Route::post('visits/bulk-action', [VisitController::class, 'bulkAction'])->name('visits.bulkAction');
     });
     
     // RETENSI RM
@@ -48,7 +49,11 @@ Route::middleware(['auth'])->group(function () {
         Route::get('/', [RetentionController::class, 'index'])->name('retensi.index');
         Route::post('/{id}/verify', [RetentionController::class, 'verifyPhysical'])->name('retensi.verify');
         Route::post('/{id}/move', [RetentionController::class, 'moveToDestruction'])->name('retensi.move');
-    });
+        Route::post('/retensi/bulk-process', [ReportController::class, 'bulkRetensi'])->name('retensi.bulkProcess');
+        Route::get('/retention', [RetentionController::class, 'index'])->name('retention.index');
+        Route::post('/retention/bulk', [RetentionController::class, 'bulkAction'])->name('retention.bulkAction');
+    
+        });
     
     // PEMUSNAHAN RM (Pastikan controller ini terpanggil)
     Route::prefix('pemusnahan')->group(function() {

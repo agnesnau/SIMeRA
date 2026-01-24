@@ -1,220 +1,279 @@
 @extends('layouts.app')
-@section('title', 'Manajemen Retensi Arsip')
+@section('title', 'Manajemen Retensi Berkas RM')
 
 @section('content')
 <div class="space-y-6">
+    
+    <!-- Notifikasi Sukses/Gagal -->
+    @if(session('success'))
+    <div class="bg-emerald-50 border-l-4 border-emerald-500 p-4 rounded shadow-sm animate-fade-in-down">
+        <p class="text-sm font-bold text-emerald-800">{{ session('success') }}</p>
+    </div>
+    @endif
+    @if(session('error'))
+    <div class="bg-red-50 border-l-4 border-red-500 p-4 rounded shadow-sm animate-fade-in-down">
+        <p class="text-sm font-bold text-red-800">{{ session('error') }}</p>
+    </div>
+    @endif
 
-    <!-- 1. INFO STATISTIK -->
-    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <!-- Inaktif -->
-        <div class="bg-white p-4 rounded-xl shadow-sm border border-l-4 border-yellow-400 flex justify-between items-center">
-            <div>
-                <p class="text-xs text-gray-500 uppercase font-bold">Total Inaktif (2-4 Th)</p>
-                <h3 class="text-2xl font-bold text-yellow-600">{{ $stats['total_inaktif'] ?? 0 }}</h3>
-            </div>
-            <div class="p-2 bg-yellow-50 rounded-lg text-yellow-500">
-                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-            </div>
+    <!-- 1. HEADER (DESAIN SIMPEL & BERSIH) -->
+    <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+        <div>
+            <h2 class="text-2xl font-black text-gray-800 tracking-tight uppercase italic">Penyusutan Berkas <span class="text-emerald-600">Retensi</span></h2>
+            <p class="text-[10px] text-gray-400 font-bold uppercase tracking-widest mt-1">
+                Waktu Sistem: <span class="text-emerald-700">{{ now()->format('d F Y | H:i') }} WIB</span>
+            </p>
         </div>
-        <!-- Siap Musnah -->
-        <div class="bg-white p-4 rounded-xl shadow-sm border border-l-4 border-red-500 flex justify-between items-center">
-            <div>
-                <p class="text-xs text-gray-500 uppercase font-bold">Siap Retensi (> 4 Th)</p>
-                <h3 class="text-2xl font-bold text-red-600">{{ $stats['siap_musnah'] ?? 0 }}</h3>
-            </div>
-            <div class="p-2 bg-red-50 rounded-lg text-red-500">
-                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
-            </div>
-        </div>
-        <!-- Info Aturan -->
-        <div class="bg-blue-50 p-4 rounded-xl border border-blue-200 text-sm text-blue-800 flex flex-col justify-center">
-            <p class="font-bold mb-1 flex items-center"><svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg> Aturan Retensi:</p>
-            <ul class="list-disc pl-5 space-y-1 text-xs">
-                <li><strong>Inaktif:</strong> Tidak berkunjung 2 s.d 4 tahun.</li>
-                <li><strong>Siap Musnah:</strong> Tidak berkunjung > 4 tahun.</li>
-            </ul>
+
+        <!-- Filter & Search Group -->
+        <div class="flex flex-wrap items-center gap-3 w-full md:w-auto">
+            <form action="{{ route('retention.index') }}" method="GET" id="filter-form" class="flex flex-wrap gap-2 w-full md:w-auto">
+                <div class="relative">
+                    <span class="absolute inset-y-0 left-0 pl-3 flex items-center text-gray-400">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+                    </span>
+                    <input type="text" name="search" value="{{ request('search') }}" placeholder="Cari No RM / Nama..." 
+                        class="pl-9 pr-4 py-2 bg-white border border-gray-200 rounded-xl focus:ring-2 focus:ring-emerald-500 text-sm outline-none w-full md:w-48 transition-all">
+                </div>
+
+                <select name="status_retensi" onchange="this.form.submit()" class="py-2 pl-3 pr-8 bg-white border border-gray-200 rounded-xl focus:ring-2 focus:ring-emerald-500 text-xs font-bold text-gray-600 outline-none cursor-pointer">
+                    <option value="">Semua Status</option>
+                    <option value="Inaktif" {{ request('status_retensi') == 'Inaktif' ? 'selected' : '' }}>Inaktif</option>
+                    <option value="Siap Musnah" {{ request('status_retensi') == 'Siap Musnah' ? 'selected' : '' }}>Siap Musnah</option>
+                </select>
+
+                <input type="hidden" name="sort_order" id="sort_order" value="{{ request('sort_order', 'desc') }}">
+                <button type="button" onclick="toggleSort()" class="p-2 bg-white border border-gray-200 rounded-xl hover:bg-emerald-50 transition-all text-gray-600 shadow-sm">
+                    @if(request('sort_order', 'desc') === 'desc')
+                        <svg class="w-5 h-5 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4h13M3 8h9m-9 4h6m4 0l4-4m0 0l4 4m-4-4v12"></path></svg>
+                    @else
+                        <svg class="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4h13M3 8h9m-9 4h9m5-1l4 4m0 0l4-4m-4 4V4"></path></svg>
+                    @endif
+                </button>
+            </form>
         </div>
     </div>
 
-    <!-- 2. TABEL DATA -->
-    <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-        
-        <!-- Toolbar Filter -->
-        <div class="p-4 border-b border-gray-100 flex flex-col md:flex-row justify-between items-center gap-4 bg-gray-50">
-            <h3 class="font-bold text-gray-700 flex items-center gap-2">
-                <svg class="w-5 h-5 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"></path></svg>
-                Daftar Retensi Arsip
-            </h3>
+    <!-- 2. BULK ACTION BAR -->
+    <div id="bulk-action-area" class="hidden animate-fade-in-down">
+        <!-- Form Bulk harus punya enctype karena ada kemungkinan upload massal di masa depan -->
+        <form action="{{ route('retention.bulkAction') }}" method="POST" class="bg-gray-800 p-4 rounded-2xl flex items-center gap-4 shadow-xl text-white border border-gray-700">
+            @csrf
+            <input type="hidden" name="ids" id="input-ids-terpilih">
+            <div class="flex items-center gap-3 border-r border-gray-700 pr-4">
+                <div class="bg-emerald-500 text-white w-6 h-6 flex items-center justify-center rounded-lg text-[10px] font-black" id="jumlah-terpilih">0</div>
+                <div class="text-[10px] font-black uppercase tracking-widest">Terpilih</div>
+            </div>
             
-            <form action="{{ route('retensi.index') }}" method="GET" class="flex items-center gap-2">
-                <label class="text-sm font-medium text-gray-600">Filter Status:</label>
-                <select name="status" onchange="this.form.submit()" class="text-sm border-gray-300 rounded-lg focus:ring-emerald-500 focus:border-emerald-500 py-2 px-3 cursor-pointer">
-                    <option value="">Semua Data</option>
-                    <option value="Aktif" {{ request('status') == 'Aktif' ? 'selected' : '' }}>Aktif (< 2 Th)</option>
-                    <option value="Inaktif" {{ request('status') == 'Inaktif' ? 'selected' : '' }}>Inaktif (2-4 Th)</option>
-                    <option value="Siap Musnah" {{ request('status') == 'Siap Musnah' ? 'selected' : '' }}>Siap Musnah (> 4 Th)</option>
-                </select>
-            </form>
-        </div>
+            <select name="action_type" class="p-2 rounded-lg text-xs bg-gray-700 text-white border-none outline-none cursor-pointer font-bold uppercase" required>
+                <option value="">-- Pilih Tindakan --</option>
+                <option value="pindahkan">🚀 Pindahkan ke Siap Musnah</option>
+                <option value="nilai_guna">💎 Tandai Nilai Guna</option>
+            </select>
 
-        <!-- Tabel Konten -->
+            <button type="submit" onclick="return confirm('Jalankan aksi massal?')" class="bg-emerald-600 text-white px-6 py-2 rounded-xl font-black text-xs hover:bg-emerald-500 transition ml-auto uppercase shadow-lg shadow-emerald-900/20">Jalankan Aksi</button>
+        </form>
+    </div>
+
+    <!-- 3. TABEL DATA -->
+    <div class="bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden">
         <div class="overflow-x-auto">
             <table class="w-full text-sm text-left">
-                <thead class="bg-white text-gray-600 font-bold border-b">
+                <thead class="bg-gray-50/50 text-gray-400 font-black uppercase text-[10px] tracking-widest border-b">
                     <tr>
-                        <th class="px-6 py-4">No RM</th>
-                        <th class="px-6 py-4">Pasien</th>
-                        <th class="px-6 py-4">Kunjungan Terakhir</th>
-                        <th class="px-6 py-4">Masa Retensi</th>
-                        <th class="px-6 py-4 text-center">Status Sistem</th>
-                        <th class="px-6 py-4 text-center">Aksi / Proses</th>
+                        <th class="px-6 py-5 text-center w-12"><input type="checkbox" id="pilih-semua" class="w-4 h-4 text-emerald-600 rounded cursor-pointer border-gray-300"></th>
+                        <th class="px-6 py-5">No RM</th>
+                        <th class="px-6 py-5">Identitas Pasien</th>
+                        <th class="px-6 py-5">Kunjungan Terakhir</th>
+                        <th class="px-6 py-5 text-center">Status</th>
+                        <th class="px-6 py-5 text-center">Aksi</th>
                     </tr>
                 </thead>
-                <tbody class="divide-y divide-gray-100">
-                    @forelse($paginatedPatients as $p)
-                    <tr class="hover:bg-gray-50 transition-colors">
-                        <td class="px-6 py-4 font-bold text-emerald-600 font-mono">{{ $p->no_rm }}</td>
-                        <td class="px-6 py-4 font-medium">{{ $p->nama_pasien }}</td>
-                        
-                        <td class="px-6 py-4">
+                <tbody class="divide-y divide-gray-50 text-gray-600">
+                    @forelse($patients as $p)
+                    <tr class="hover:bg-gray-50/50 transition-all group">
+                        <td class="px-6 py-5 text-center">
+                            <input type="checkbox" class="check-item w-4 h-4 text-emerald-600 rounded cursor-pointer border-gray-200" value="{{ $p->id }}">
+                        </td>
+                        <td class="px-6 py-5 font-black text-emerald-700 font-mono tracking-tighter text-base">{{ $p->no_rm }}</td>
+                        <td class="px-6 py-5">
+                            <div class="font-black text-gray-800 uppercase text-xs">{{ $p->nama_pasien }}</div>
+                            <div class="text-[10px] text-gray-400 font-medium flex items-center gap-1 mt-1 italic">NIK: {{ $p->nik ?? '-' }}</div>
+                        </td>
+                        <td class="px-6 py-5">
                             @if($p->lastVisit)
-                                <div class="text-gray-800">{{ $p->lastVisit->tgl_kunjungan->format('d M Y') }}</div>
-                                <div class="text-xs text-gray-400">{{ $p->lastVisit->tgl_kunjungan->diffForHumans() }}</div>
+                                <div class="font-bold text-gray-700">{{ $p->lastVisit->tgl_kunjungan->format('d/m/Y') }}</div>
+                                <div class="text-[10px] text-emerald-500 font-black uppercase tracking-tighter mt-1 italic">{{ $p->lastVisit->tgl_kunjungan->diffForHumans() }}</div>
                             @else
-                                <span class="text-gray-400 italic text-xs">Belum ada data</span>
+                                <span class="text-gray-300 italic text-xs">Belum ada data</span>
                             @endif
                         </td>
-
-                        <td class="px-6 py-4 text-gray-600">
-                            @if($p->lastVisit)
-                                {{ $p->lastVisit->tgl_kunjungan->diffInYears(now()) }} Tahun
-                            @else
-                                -
+                        <td class="px-6 py-5 text-center">
+                            @php $status = $p->current_status; @endphp
+                            @if($status == 'Inaktif')
+                                <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[9px] font-black bg-yellow-50 text-yellow-700 border border-yellow-200 uppercase tracking-widest shadow-sm">
+                                    📁 INAKTIF
+                                </span>
+                            @elseif($status == 'Siap Musnah')
+                                <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[9px] font-black bg-red-50 text-red-700 border border-red-200 uppercase tracking-widest shadow-sm animate-pulse">
+                                    🔥 SIAP MUSNAH
+                                </span>
                             @endif
                         </td>
-
-                        <!-- STATUS LABEL -->
-                        <td class="px-6 py-4 text-center">
-                            @if($p->current_status == 'Aktif')
-                                <span class="px-3 py-1 rounded-full text-xs font-bold bg-green-100 text-green-700">Aktif</span>
-                            @elseif($p->current_status == 'Inaktif')
-                                <span class="px-3 py-1 rounded-full text-xs font-bold bg-yellow-100 text-yellow-700">Inaktif</span>
-                            @elseif($p->current_status == 'Siap Musnah')
-                                <span class="px-3 py-1 rounded-full text-xs font-bold bg-red-100 text-red-700 animate-pulse">Siap Musnah</span>
-                            @else
-                                <span class="px-3 py-1 rounded-full text-xs font-bold bg-gray-100 text-gray-600">Dimusnahkan</span>
-                            @endif
-                        </td>
-
-                        <!-- TOMBOL AKSI -->
-                        <td class="px-6 py-4 text-center">
-                            <div class="flex justify-center gap-2">
-                                
-                                <!-- 1. Tombol Upload Nilai Guna -->
-                                @if(in_array($p->current_status, ['Inaktif', 'Siap Musnah']))
-                                    <button type="button" 
-                                        data-url="{{ route('retensi.verify', $p->id) }}"
-                                        data-name="{{ $p->nama_pasien }}"
-                                        onclick="openUploadModal(this)"
-                                        class="flex items-center gap-1 px-3 py-1.5 bg-blue-50 text-blue-600 rounded text-xs font-medium hover:bg-blue-100 transition border border-blue-200" 
-                                        title="Upload Berkas Nilai Guna">
-                                        <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path></svg>
-                                        Upload Nilai Guna
-                                    </button>
-                                @endif
-
-                                <!-- 2. Tombol RETENSI -->
-                                @if(in_array($p->current_status, ['Inaktif', 'Siap Musnah']))
-                                    <form action="{{ route('retensi.move', $p->id) }}" method="POST" onsubmit="return confirm('Pindahkan berkas RM {{ $p->no_rm }} ke daftar SIAP MUSNAH?');">
-                                        @csrf
-                                        <button type="submit" class="flex items-center gap-1 px-3 py-1.5 bg-red-50 text-red-600 rounded text-xs font-medium hover:bg-red-100 transition border border-red-200 shadow-sm">
-                                            <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 5l7 7-7 7M5 5l7 7-7 7"></path></svg>
-                                            Retensi
-                                        </button>
-                                    </form>
-                                @elseif($p->current_status == 'Aktif')
-                                    <span class="text-xs text-green-600 italic">Masa Aktif</span>
-                                @endif
-
-                            </div>
+                        <td class="px-6 py-5 text-center">
+                            <button type="button" onclick="openRetentionModal('{{ $p->id }}', '{{ $p->nama_pasien }}', '{{ $p->no_rm }}')" 
+                                class="group flex items-center gap-2 px-4 py-2 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-xl hover:bg-emerald-600 hover:text-white transition-all shadow-sm">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
+                                <span class="font-black text-[10px] uppercase">Proses</span>
+                            </button>
                         </td>
                     </tr>
                     @empty
-                    <tr>
-                        <td colspan="6" class="px-6 py-12 text-center text-gray-400 bg-gray-50/50">
-                            Tidak ada data retensi yang sesuai filter.
-                        </td>
-                    </tr>
+                    <tr><td colspan="6" class="px-6 py-20 text-center text-gray-400 italic">Data tidak ditemukan.</td></tr>
                     @endforelse
                 </tbody>
             </table>
         </div>
-
-        <!-- Pagination -->
-        <div class="p-4 border-t border-gray-100">
-            {{ $paginatedPatients->appends(request()->query())->links() }}
+        <div class="p-6 border-t border-gray-50 bg-gray-50/30">
+            {{ $patients->withQueryString()->links() }}
         </div>
     </div>
 </div>
 
-<!-- 3. MODAL UPLOAD NILAI GUNA (Wajib Ada) -->
-<div id="uploadModal" class="fixed inset-0 bg-gray-900 bg-opacity-70 hidden z-50 flex items-center justify-center backdrop-blur-sm p-4">
-    <div class="bg-white rounded-xl shadow-xl w-full max-w-md mx-auto p-6 animate-fade-in-down relative">
+<!-- 4. MODAL PROSES RETENSI (WAJIB ENCTYPE UNTUK UPLOAD) -->
+<div id="retentionModal" class="fixed inset-0 bg-gray-900/60 backdrop-blur-sm hidden z-[100] flex items-center justify-center p-4" onclick="closeModalOnOuterClick(event)">
+    <div class="bg-white rounded-3xl shadow-2xl w-full max-w-md overflow-hidden transform transition-all animate-fade-in-up border border-gray-100 relative">
         
-        <!-- Header Modal -->
-        <div class="flex justify-between items-center mb-4">
-            <h3 class="text-lg font-bold text-gray-800">Upload Nilai Guna</h3>
-            <button type="button" onclick="document.getElementById('uploadModal').classList.add('hidden')" class="text-gray-400 hover:text-gray-600 transition-colors">
-                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
-            </button>
-        </div>
-        
-        <!-- Form Upload -->
-        <form id="uploadForm" action="" method="POST" enctype="multipart/form-data">
-            @csrf
-            
-            <div class="mb-4 bg-blue-50 p-3 rounded-lg border border-blue-100 text-sm text-blue-800">
-                Pasien: <span id="modalPatientName" class="font-bold"></span>
+        <div class="h-24 bg-gradient-to-br from-emerald-600 to-emerald-900 relative p-6">
+            <button onclick="closeRetentionModal()" class="absolute top-4 right-4 bg-black/20 text-white hover:bg-black/40 rounded-full p-1.5 transition">&times;</button>
+            <div class="flex items-center gap-4 text-white">
+                <div class="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center backdrop-blur-md">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
+                </div>
+                <div>
+                    <h3 class="font-black uppercase italic text-sm tracking-widest">Verifikasi Retensi</h3>
+                    <p class="text-[10px] font-bold opacity-80" id="modal-norm">RM-000000</p>
+                </div>
             </div>
+        </div>
 
-            <div class="mb-4">
-                <label class="block text-sm font-medium text-gray-700 mb-2">Foto / Scan Berkas Fisik</label>
-                <div class="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:bg-gray-50 transition bg-gray-50 cursor-pointer relative group">
-                    <input type="file" name="file_nilai_guna" accept="image/*,application/pdf" required class="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10">
-                    <div class="text-gray-500 group-hover:text-blue-500 transition-colors">
-                        <svg class="mx-auto h-10 w-10 text-gray-400 mb-2 group-hover:text-blue-400" stroke="currentColor" fill="none" viewBox="0 0 48 48"><path d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8m-12 4h.02" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" /></svg>
-                        <p class="text-sm">Klik untuk pilih gambar/PDF</p>
+        <!-- WAJIB: enctype="multipart/form-data" -->
+        <form action="{{ route('retention.bulkAction') }}" method="POST" enctype="multipart/form-data" class="p-8" id="form-retensi" onsubmit="return validateRetentionForm()">
+            @csrf
+            <input type="hidden" name="ids" id="modal-patient-id">
+            
+            <div class="space-y-6">
+                <div>
+                    <label class="text-[10px] font-black text-gray-400 uppercase tracking-widest block mb-1">Pasien</label>
+                    <p class="text-lg font-black text-gray-800 uppercase" id="modal-nama">Nama Pasien</p>
+                </div>
+
+                <div class="space-y-3">
+                    <label class="text-[10px] font-black text-gray-400 uppercase tracking-widest block mb-1">Status Berkas Selanjutnya</label>
+                    <div class="grid grid-cols-2 gap-3">
+                        <label class="relative flex flex-col items-center p-4 bg-gray-50 border-2 border-transparent rounded-2xl cursor-pointer hover:bg-emerald-50 has-[:checked]:border-emerald-500 has-[:checked]:bg-emerald-50 transition-all group">
+                            <input type="radio" name="action_type" value="nilai_guna" class="hidden" onchange="toggleUploadField(true)" required>
+                            <svg class="w-6 h-6 text-gray-300 group-has-[:checked]:text-emerald-500 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                            <span class="text-[10px] font-black uppercase text-gray-500">Ada Nilai Guna</span>
+                        </label>
+                        <label class="relative flex flex-col items-center p-4 bg-gray-50 border-2 border-transparent rounded-2xl cursor-pointer hover:bg-red-50 has-[:checked]:border-red-500 has-[:checked]:bg-red-50 transition-all group">
+                            <input type="radio" name="action_type" value="pindahkan" class="hidden" onchange="toggleUploadField(false)">
+                            <svg class="w-6 h-6 text-gray-300 group-has-[:checked]:text-red-500 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                            <span class="text-[10px] font-black uppercase text-gray-500">Siap Musnah</span>
+                        </label>
                     </div>
                 </div>
-                <p class="text-xs text-gray-400 mt-2">Format: JPG, PNG, PDF. Maks 2MB.</p>
+
+                <div id="upload-section" class="hidden animate-fade-in-down">
+                    <div class="p-4 bg-emerald-50 rounded-2xl border border-dashed border-emerald-200">
+                        <label class="text-[10px] font-black text-emerald-700 uppercase mb-3 block">Upload Nilai Guna (.PDF/.JPG)</label>
+                        <input type="file" id="nilai_guna_file" name="nilai_guna_file" accept=".pdf,.jpg,.jpeg,.png" class="block w-full text-[10px] text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-[10px] file:font-black file:bg-white file:text-emerald-700 cursor-pointer">
+                        <p id="error-file" class="hidden text-[9px] text-red-600 font-bold uppercase mt-2 italic">⚠️ File wajib diunggah!</p>
+                    </div>
+                </div>
+
+                <div id="notice-section" class="hidden animate-fade-in-down">
+                    <div class="bg-amber-50 border border-amber-100 p-4 rounded-2xl flex items-start gap-3">
+                        <svg class="w-5 h-5 text-amber-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
+                        <p class="text-[10px] text-amber-800 font-bold uppercase leading-relaxed">Peringatan: Berkas tanpa nilai guna akan dipindahkan ke daftar pemusnahan.</p>
+                    </div>
+                </div>
             </div>
-            
-            <div class="flex justify-end gap-3 pt-2">
-                <button type="button" onclick="document.getElementById('uploadModal').classList.add('hidden')" class="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg text-sm hover:bg-gray-200 transition-colors">Batal</button>
-                <button type="submit" class="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm hover:bg-blue-700 shadow-sm transition-colors">Upload & Verifikasi</button>
+
+            <div class="mt-8 pt-6 border-t flex gap-3">
+                <button type="button" onclick="closeRetentionModal()" class="flex-1 py-3 bg-gray-100 text-gray-600 font-black rounded-xl text-[10px] uppercase">Batal</button>
+                <button type="submit" class="flex-1 py-3 bg-emerald-600 text-white font-black rounded-xl text-[10px] uppercase shadow-lg shadow-emerald-200 active:scale-95 transition-transform">Konfirmasi</button>
             </div>
         </form>
     </div>
 </div>
 
-<!-- 4. SCRIPT PENGHUBUNG TOMBOL & MODAL -->
 <script>
-    function openUploadModal(element) {
-        // Ambil data dari atribut tombol
-        let url = element.getAttribute('data-url');
-        let name = element.getAttribute('data-name');
+    function openRetentionModal(id, nama, norm) {
+        document.getElementById('modal-patient-id').value = id;
+        document.getElementById('modal-nama').innerText = nama;
+        document.getElementById('modal-norm').innerText = 'RM: ' + norm;
         
-        if (!url) {
-            console.error('URL upload tidak ditemukan pada tombol');
-            return;
-        }
+        // Reset
+        const radios = document.getElementsByName('action_type');
+        radios.forEach(r => r.checked = false);
+        document.getElementById('upload-section').classList.add('hidden');
+        document.getElementById('notice-section').classList.add('hidden');
+        document.getElementById('error-file').classList.add('hidden');
+        document.getElementById('nilai_guna_file').value = '';
 
-        // Isi form action dan nama pasien
-        document.getElementById('uploadForm').action = url;
-        document.getElementById('modalPatientName').innerText = name;
+        document.getElementById('retentionModal').classList.remove('hidden');
+    }
+
+    function toggleUploadField(show) {
+        const upload = document.getElementById('upload-section');
+        const notice = document.getElementById('notice-section');
+        const fileInput = document.getElementById('nilai_guna_file');
         
-        // Tampilkan Modal
-        document.getElementById('uploadModal').classList.remove('hidden');
+        if(show) {
+            upload.classList.remove('hidden');
+            notice.classList.add('hidden');
+            fileInput.required = true;
+        } else {
+            upload.classList.add('hidden');
+            notice.classList.remove('hidden');
+            fileInput.required = false;
+        }
+    }
+
+    function validateRetentionForm() {
+        const actionType = document.querySelector('input[name="action_type"]:checked');
+        const fileInput = document.getElementById('nilai_guna_file');
+        const errorMsg = document.getElementById('error-file');
+
+        if (actionType && actionType.value === 'nilai_guna') {
+            if (fileInput.files.length === 0) {
+                errorMsg.classList.remove('hidden');
+                return false; 
+            }
+        }
+        return true;
+    }
+
+    function closeRetentionModal() {
+        document.getElementById('retentionModal').classList.add('hidden');
+    }
+
+    function closeModalOnOuterClick(event) {
+        if (event.target.id === 'retentionModal') closeRetentionModal();
+    }
+
+    function toggleSort() {
+        const input = document.getElementById('sort_order');
+        input.value = input.value === 'desc' ? 'asc' : 'desc';
+        document.getElementById('filter-form').submit();
     }
 </script>
+
+<style>
+    @keyframes fade-in-up { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+    @keyframes fade-in-down { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
+    .animate-fade-in-up { animation: fade-in-up 0.3s ease-out forwards; }
+    .animate-fade-in-down { animation: fade-in-down 0.2s ease-out forwards; }
+</style>
 @endsection
