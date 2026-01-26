@@ -1,0 +1,16 @@
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+
+public function up()
+{
+    Schema::table('patients', function (Blueprint $table) {
+        $table->string('no_rm', 50)->change(); // Perlebar jadi 50 karakter
+    });
+}
+};

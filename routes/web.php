@@ -1,73 +1,91 @@
 <?php
 
 use Illuminate\Support\Facades\Route;
-
-// --- DAFTAR IMPORT CONTROLLER (WAJIB LENGKAP) ---
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\PatientController;
 use App\Http\Controllers\VisitController;
 use App\Http\Controllers\RetentionController;
-use App\Http\Controllers\DestructionController; // <--- INI WAJIB ADA AGAR TIDAK 404
+use App\Http\Controllers\DestructionController; 
 use App\Http\Controllers\Auth\LoginController;
 use App\Http\Controllers\ReportController;
+use App\Http\Controllers\PemilahanController;
 
 /*
 |--------------------------------------------------------------------------
-| Web Routes
+| Web Routes - Sistem SIMeRA (Puskesmas Silo 1)
 |--------------------------------------------------------------------------
 */
 
-// 1. RUTE AUTH (LOGIN/LOGOUT)
+// --- AUTHENTICATION ---
 Route::get('/login', [LoginController::class, 'showLoginForm'])->name('login');
 Route::post('/login', [LoginController::class, 'login']);
 Route::post('/logout', [LoginController::class, 'logout'])->name('logout');
 
-// 2. RUTE PROTEKSI (HARUS LOGIN)
 Route::middleware(['auth'])->group(function () {
     
-    // Redirect root ke dashboard
     Route::get('/', function() { return redirect('/dashboard'); });
 
-    // DASHBOARD
+    // --- DASHBOARD & MONITORING ---
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
     Route::get('/dashboard/activities', [DashboardController::class, 'refreshActivities'])->name('dashboard.activities');
     
-    // MASTER DATA
+    // --- MASTER DATA (STRUKTUR LAMA) ---
     Route::prefix('master')->group(function () {
+        // Manajemen Pengguna
         Route::resource('users', UserController::class); 
         
+        // Manajemen Pasien (Lengkap dengan Import & Bulk Action)
         Route::post('patients/import', [PatientController::class, 'import'])->name('patients.import');
-        Route::resource('patients', PatientController::class); 
-        Route::post('/patients/bulk-action', [PatientController::class, 'bulkAction'])->name('patients.bulkAction');
-        Route::resource('visits', VisitController::class);
+        Route::post('patients/bulk-action', [PatientController::class, 'bulkAction'])->name('patients.bulkAction');
+        Route::resource('patients', PatientController::class); // Support Full-Page Show (Resume Medis)
+        
+        // Manajemen Kunjungan (Lengkap dengan Bulk Action)
         Route::post('visits/bulk-action', [VisitController::class, 'bulkAction'])->name('visits.bulkAction');
+        Route::resource('visits', VisitController::class); // Support Full-Page Show (Lembar Medis)
     });
     
-    // RETENSI RM
+    // --- MODUL RETENSI (STRUKTUR LAMA + PROPOSED/HISTORY) ---
     Route::prefix('retensi')->group(function() {
+        // Daftar Utama
         Route::get('/', [RetentionController::class, 'index'])->name('retensi.index');
+        
+        // FITUR BARU: Pemilahan RM (Wajib ada agar rute di Canvas tidak error)
+        Route::get('/pemilahan', [PemilahanController::class, 'index'])->name('retensi.pemilahan');
+        Route::post('/pemilahan/{id}/selesai', [PemilahanController::class, 'finishSorting'])->name('retensi.pemilahan.selesai');
+        
+        // Aksi Transisi
+        Route::post('/{id}/ke-pemilahan', [RetentionController::class, 'sendToSorting'])->name('retensi.sendToSorting');
         Route::post('/{id}/verify', [RetentionController::class, 'verifyPhysical'])->name('retensi.verify');
         Route::post('/{id}/move', [RetentionController::class, 'moveToDestruction'])->name('retensi.move');
-        Route::post('/retensi/bulk-process', [ReportController::class, 'bulkRetensi'])->name('retensi.bulkProcess');
-        Route::get('/retention', [RetentionController::class, 'index'])->name('retention.index');
-        Route::post('/retention/bulk', [RetentionController::class, 'bulkAction'])->name('retention.bulkAction');
+        
+        Route::get('/proposed', [RetentionController::class, 'proposed'])->name('retensi.proposed');
+        Route::get('/history', [RetentionController::class, 'history'])->name('retensi.history');
+        Route::post('/bulk', [RetentionController::class, 'bulkAction'])->name('retensi.bulkAction');
+    });
     
-        });
-    
-    // PEMUSNAHAN RM (Pastikan controller ini terpanggil)
+    // --- MODUL PEMUSNAHAN (STRUKTUR LAMA + PROPOSED/HISTORY) ---
     Route::prefix('pemusnahan')->group(function() {
         Route::get('/', [DestructionController::class, 'index'])->name('pemusnahan.index');
+        Route::get('/proposed', [DestructionController::class, 'proposed'])->name('pemusnahan.proposed');
+        Route::get('/history', [DestructionController::class, 'history'])->name('pemusnahan.history');
+        Route::post('/bulk', [DestructionController::class, 'bulkAction'])->name('pemusnahan.bulkAction');
+
+        // ALIAS UNTUK MENCEGAH ERROR (SINKRON DENGAN VIEW BAHASA INGGRIS)
+        Route::get('/index-alias', [DestructionController::class, 'index'])->name('destruction.index');
+        Route::post('/bulk-alias-pm', [DestructionController::class, 'bulkAction'])->name('destruction.bulkAction');
+        
+        // Aksi Individu
         Route::post('/{id}/restore', [DestructionController::class, 'restore'])->name('pemusnahan.restore');
         Route::post('/{id}/execute', [DestructionController::class, 'destroyPermanent'])->name('pemusnahan.execute');
     });
 
-    // PELAPORAN
-    Route::prefix('laporan')->group(function() {
-        // Arahkan ke Controller, BUKAN function() { view(...) }
-        Route::get('/', [\App\Http\Controllers\ReportController::class, 'index'])->name('laporan.index');
-        
-        Route::post('/cetak', [\App\Http\Controllers\ReportController::class, 'printBeritaAcara'])->name('laporan.cetak');
-    });
-});
+    // --- MODUL PELAPORAN ---
+Route::prefix('laporan')->name('laporan.')->group(function () {
+    Route::get('/', [ReportController::class, 'index'])->name('index');
+    Route::post('/cetak', [ReportController::class, 'printBeritaAcara'])->name('cetak');
 
+    Route::get('/reprint/{id}', [ReportController::class, 'reprint'])->name('reprint');
+
+});
+    });

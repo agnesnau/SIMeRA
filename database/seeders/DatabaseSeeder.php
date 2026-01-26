@@ -7,112 +7,104 @@ use Illuminate\Support\Facades\Hash;
 use App\Models\User;
 use App\Models\Patient;
 use App\Models\Visit;
-use App\Models\RetentionAction;
 use Carbon\Carbon;
 
 class DatabaseSeeder extends Seeder
 {
-    public function run()
+    /**
+     * Jalankan database seeder tanpa menghapus data lama.
+     * Menggunakan updateOrCreate dan firstOrCreate agar aman dijalankan berulang kali.
+     */
+    public function run(): void
     {
-        // 1. DATA USER (AKUN LOGIN)
-        $admin = User::create([
-            'nip'          => '198501012010011001',
-            'nama_lengkap' => 'Administrator Sistem',
-            'username'     => 'admin', 
-            'password'     => Hash::make('123'),
-            'level'        => 'admin'
-        ]);
+        // 1. DATA PENGGUNA (Update jika sudah ada username yang sama)
+        User::updateOrCreate(
+            ['username' => 'admin'],
+            [
+                'nip' => '198501012010011001',
+                'nama_lengkap' => 'Administrator Sistem',
+                'password' => Hash::make('123'),
+                'level' => 'admin'
+            ]
+        );
 
-        $petugas = User::create([
-            'nip'          => '199002022015022002',
-            'nama_lengkap' => 'Petugas Rekam Medis',
-            'username'     => 'petugas',
-            'password'     => Hash::make('123'),
-            'level'        => 'petugas'
-        ]);
+        User::updateOrCreate(
+            ['username' => 'petugas'],
+            [
+                'nip' => '199002022015022002',
+                'nama_lengkap' => 'Petugas Rekam Medis',
+                'password' => Hash::make('123'),
+                'level' => 'petugas'
+            ]
+        );
 
-        // 2. DATA SPESIFIK UNTUK CONTOH (RM-001 s.d RM-010)
-        // Tetap dipertahankan untuk kebutuhan demonstrasi status manual
-        $this->createData('RM-001', 'Budi Santoso', 'L', now()->subMonths(3), 'Poli Umum', 'Febris', $petugas->id);
-        $this->createData('RM-002', 'Ani Wijaya', 'P', now()->subMonths(10), 'Poli Gigi', 'Karies', $petugas->id);
-        $this->createData('RM-003', 'Citra Kirana', 'P', now()->subYear(), 'KIA', 'Imunisasi', $petugas->id);
-        $this->createData('RM-004', 'Dedi Corbuzier', 'L', now()->subYears(2)->subMonths(6), 'Poli Umum', 'Hipertensi', $petugas->id);
-        $this->createData('RM-005', 'Eko Patrio', 'L', now()->subYears(3), 'IGD', 'Dyspepsia', $petugas->id);
+        // Ambil ID petugas untuk relasi kunjungan
+        $petugasId = User::where('username', 'petugas')->first()->id;
+
+        // 2. DATA SAMPEL NYATA (Menggunakan format no_index baru)
+        $realData = [
+            ['143509110005-008836', 'SUMO', 'L', '2025-12-01'],
+            ['143509110005-000038', 'MISRI', 'P', '2025-12-01'],
+            ['143509110005-035390', 'SUBEWI', 'L', '2025-12-01'],
+            ['143509110005-001105', 'FITI YUGI WARNI', 'P', '2025-12-01'],
+            ['143509110005-036589', 'MAHIRHOTUL AULAWIYAH', 'P', '2025-12-01'],
+            ['143509110005-036590', 'P. NAWIR', 'L', '2025-12-01'],
+            ['143509110005-036948', 'SUSILA WATI', 'P', '2025-12-29'],
+            ['143509110005-036761', 'USWATUL HASANAH', 'P', '2025-12-29'],
+            ['143509110005-031774', 'MAIMUNA', 'P', '2025-12-29'],
+            ['143509110005-034973', 'IQLILAH DINI FAJRIATI', 'P', '2025-12-29'],
+            ['143509110005-036952', 'BY NY IZA KHOFIFAH', 'L', '2025-12-29'],
+        ];
+
+        $counter = 1;
+        foreach ($realData as $data) {
+            $this->createData($data[0], $data[1], $data[2], $data[3], $petugasId, $counter++);
+        }
+
+        // 3. DATA DUMMY TAMBAHAN (Hingga total 100 data)
+        $totalTarget = 100;
         
-        $p6 = $this->createData('RM-006', 'Fatin Shidqia', 'P', now()->subYears(3)->subMonths(11), 'Poli Gigi', 'Pulpitis', $petugas->id);
-        RetentionAction::create(['patient_id' => $p6->id, 'user_id' => $admin->id, 'action_type' => 'verifikasi_fisik', 'keterangan' => 'Nilai guna diupload', 'file_path' => 'nilai_guna/sample.pdf']);
+        $names = ['Slamet', 'Budi', 'Siti', 'Dewi', 'Agus', 'Rina', 'Joko', 'Eko', 'Yanti', 'Wati'];
+        $surnames = ['Santoso', 'Wijaya', 'Kusuma', 'Hidayat', 'Pratama', 'Gunawan', 'Setiawan'];
 
-        $this->createData('RM-007', 'Gading Marten', 'L', now()->subYears(5), 'Poli Umum', 'Cephalgia', $petugas->id);
-        $this->createData('RM-008', 'Hesti Purwadinata', 'P', now()->subYears(7), 'KIA', 'ANC Routine', $petugas->id);
-
-        $p9 = Patient::create(['no_rm' => 'RM-009', 'nik' => '3509090909090009', 'nama_pasien' => 'Indro Warkop', 'tgl_lahir' => '1960-01-01', 'jenis_kelamin' => 'L', 'alamat_lengkap' => 'Jl. Jakarta No. 9', 'manual_status' => 'siap_musnah']);
-        $this->addVisit($p9->id, now()->subYears(4)->subMonths(5), 'IGD', 'Asthma', $petugas->id);
-
-        $p10 = Patient::create(['no_rm' => 'RM-010', 'nik' => '3501010101010010', 'nama_pasien' => 'Joko Anwar', 'tgl_lahir' => '1976-01-01', 'jenis_kelamin' => 'L', 'alamat_lengkap' => 'Jl. Surabaya No. 10', 'manual_status' => 'dimusnahkan']);
-        $this->addVisit($p10->id, now()->subYears(10), 'Poli Umum', 'TBC', $petugas->id);
-
-
-        // 3. GENERATE MASSAL (11 s.d 1253)
-        $firstNames = ['Agus', 'Bambang', 'Candra', 'Dwi', 'Eko', 'Fajar', 'Guntur', 'Hendra', 'Indra', 'Joko', 'Kurniawan', 'Lucky', 'Mulyono', 'Nugroho', 'Oki', 'Prasetyo', 'Rully', 'Slamet', 'Teguh', 'Utomo', 'Wawan', 'Yanto', 'Zul', 'Siti', 'Dewi', 'Lestari', 'Putri', 'Sari', 'Indah', 'Rina', 'Wati', 'Maya', 'Eka', 'Ani', 'Bunga', 'Citra', 'Dian', 'Fitri', 'Gita', 'Hana'];
-        $lastNames = ['Saputra', 'Wijaya', 'Kusuma', 'Hidayat', 'Santoso', 'Pratama', 'Sholeh', 'Gunawan', 'Setiawan', 'Ramadhan', 'Putra', 'Permana', 'Nugraha', 'Wibowo', 'Susanto', 'Purnama', 'Firmansyah', 'Ardiansyah'];
-        $polis = ['Poli Umum', 'Poli Gigi', 'KIA/KB', 'IGD', 'Poli Lansia', 'Poli Anak'];
-        $diagnosas = ['Febris', 'Hipertensi', 'Dyspepsia', 'Cephalgia', 'ISPA', 'Karies Gigi', 'Gastritis', 'Diabetes Melitus', 'Asma', 'Dermatitis'];
-
-        $totalData = 1253;
-        $batch = [];
-        
-        for ($i = 11; $i <= $totalData; $i++) {
-            $formattedIndex = str_pad($i, 4, '0', STR_PAD_LEFT);
-            $nama = $firstNames[array_rand($firstNames)] . " " . $lastNames[array_rand($lastNames)];
+        for ($i = $counter; $i <= $totalTarget; $i++) {
+            $formattedIndex = "143509110005-" . str_pad($i, 6, '0', STR_PAD_LEFT);
+            $nama = $names[array_rand($names)] . " " . $surnames[array_rand($surnames)];
             $jk = (rand(0, 1) == 0 ? 'L' : 'P');
+            $randomDate = now()->subDays(rand(0, 1800))->format('Y-m-d');
             
-            // Random tanggal kunjungan antara hari ini s/d 10 tahun lalu (3650 hari)
-            $randomDays = rand(0, 3650); 
-            $tglKunjungan = now()->subDays($randomDays);
-            
-            $p = Patient::create([
-                'no_rm' => "RM-$formattedIndex",
-                'nik' => '35' . rand(10, 99) . rand(10, 99) . rand(10000000, 99999999),
-                'nama_pasien' => $nama,
-                'tgl_lahir' => now()->subYears(rand(18, 75))->subDays(rand(1, 365))->format('Y-m-d'),
-                'jenis_kelamin' => $jk,
-                'alamat_lengkap' => 'Jl. Sampel Data No. ' . rand(1, 300) . ', Kec. Arjasa, Jember',
-            ]);
-
-            $this->addVisit(
-                $p->id, 
-                $tglKunjungan, 
-                $polis[array_rand($polis)], 
-                $diagnosas[array_rand($diagnosas)], 
-                $petugas->id
-            );
+            $this->createData($formattedIndex, $nama, $jk, $randomDate, $petugasId, $i);
         }
     }
 
-    private function createData($rm, $nama, $jk, $tgl, $poli, $diag, $uid)
+    /**
+     * Helper untuk membuat data Pasien dan Kunjungan secara cerdas.
+     */
+    private function createData($index, $nama, $jk, $tglKunjungan, $uid, $uniqueId)
     {
-        $p = Patient::create([
-            'no_rm' => $rm,
-            'nik' => '35' . rand(10, 99) . rand(10, 99) . rand(10000000, 99999999),
-            'nama_pasien' => $nama,
-            'tgl_lahir' => now()->subYears(rand(20, 50))->format('Y-m-d'),
-            'jenis_kelamin' => $jk,
-            'alamat_lengkap' => 'Alamat Pasien ' . $nama . ', Jember'
-        ]);
-        $this->addVisit($p->id, $tgl, $poli, $diag, $uid);
-        return $p;
-    }
+        // Mencari atau membuat pasien baru berdasarkan No Index (RM)
+        $p = Patient::firstOrCreate(
+            ['no_rm' => $index],
+            [
+                'nik' => '3509' . str_pad($uniqueId, 12, '0', STR_PAD_LEFT),
+                'nama_pasien' => $nama,
+                'tgl_lahir' => now()->subYears(rand(20, 60))->format('Y-m-d'),
+                'jenis_kelamin' => $jk,
+                'alamat_lengkap' => 'Dsn. Contoh Data No. ' . $uniqueId . ', Jember'
+            ]
+        );
 
-    private function addVisit($pid, $tgl, $poli, $diag, $uid)
-    {
-        Visit::create([
-            'no_registrasi' => 'REG-' . rand(100000, 999999),
-            'patient_id' => $pid,
-            'tgl_kunjungan' => $tgl,
-            'poli_tujuan' => $poli,
-            'dokter' => 'dr. ' . ['Suharyo', 'Mulyadi', 'Indah', 'Pratiwi', 'Bambang'][rand(0, 4)],
-            'diagnosa' => $diag,
-            'user_id' => $uid
-        ]);
+        // Update atau buat data kunjungan berdasarkan Nomor Registrasi agar tidak error Duplicate
+        Visit::updateOrCreate(
+            ['no_registrasi' => 'REG-' . str_pad($uniqueId, 8, '0', STR_PAD_LEFT)],
+            [
+                'patient_id' => $p->id,
+                'tgl_kunjungan' => $tglKunjungan,
+                'dokter' => 'dr. ' . ['Suharyo', 'Mulyadi', 'Indah', 'Pratiwi'][rand(0, 3)],
+                'user_id' => $uid,
+                'poli_tujuan' => ['Poli Umum', 'Poli Gigi', 'KIA', 'IGD'][rand(0, 3)],
+                'diagnosa' => ['Febris', 'Hipertensi', 'Dyspepsia', 'Cephalgia', 'ISPA'][rand(0, 4)]
+            ]
+        );
     }
 }

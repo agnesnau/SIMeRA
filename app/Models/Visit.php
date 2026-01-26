@@ -10,8 +10,8 @@ class Visit extends Model
     use HasFactory;
 
     /**
-     * Kolom yang dapat diisi secara massal (Mass Assignment).
-     * Pastikan 'poli_tujuan' dan 'diagnosa' ada di sini agar bisa disimpan ke DB.
+     * Kolom yang boleh diisi untuk data kunjungan.
+     * diagnosa, poli_tujuan, dan dokter ditambahkan agar data import Excel tersimpan.
      */
     protected $fillable = [
         'no_registrasi',
@@ -24,24 +24,19 @@ class Visit extends Model
     ];
 
     /**
-     * Memastikan tgl_kunjungan otomatis dikonversi menjadi objek Carbon (Tanggal).
-     * Ini mencegah error: "Call to a member function diffInYears() on string".
+     * Pastikan tgl_kunjungan dibaca sebagai objek tanggal (Carbon)
      */
     protected $casts = [
         'tgl_kunjungan' => 'date',
     ];
 
-    /**
-     * Relasi ke data Pasien.
-     */
+    // Relasi balik ke Pasien
     public function patient()
     {
         return $this->belongsTo(Patient::class);
     }
 
-    /**
-     * Relasi ke Petugas yang menginput.
-     */
+    // Relasi ke User (Petugas yang input)
     public function user()
     {
         return $this->belongsTo(User::class);

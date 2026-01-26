@@ -12,29 +12,20 @@ use App\Imports\PatientsImport;
 
 class PatientController extends Controller
 {
-    /**
-     * Pengaturan Hak Akses: Membatasi Kepala Puskesmas agar View Only
-     */
     public function __construct()
     {
         $this->middleware(function ($request, $next) {
             $restrictedActions = ['create', 'store', 'edit', 'update', 'destroy', 'import', 'bulkAction'];
-            
             if (auth()->user()->level === 'kepala' && in_array($request->route()->getActionMethod(), $restrictedActions)) {
-                return redirect()->route('patients.index')->with('error', 'Akses Ditolak! Kepala Puskesmas hanya memiliki hak akses Lihat Data (View Only).');
+                return redirect()->route('patients.index')->with('error', 'Akses Ditolak! View Only.');
             }
-
             return $next($request);
         });
     }
 
-    /**
-     * Tampilan Utama dengan Pencarian dan Filter Status
-     */
     public function index(Request $request)
     {
         $query = Patient::with('visits');
-
         if ($request->filled('search')) {
             $search = $request->search;
             $query->where(function($q) use ($search) {
@@ -43,50 +34,86 @@ class PatientController extends Controller
                   ->orWhere('nik', 'like', "%{$search}%");
             });
         }
-
-        // Ambil semua data dulu untuk difilter berdasarkan Accessor 'current_status'
         $patients = $query->latest()->get(); 
-
         if ($request->filled('status')) {
             $statusFilter = $request->status;
-            $patients = $patients->filter(function ($patient) use ($statusFilter) {
-                return strtolower($patient->current_status) === strtolower($statusFilter);
-            });
+            $patients = $patients->filter(fn($p) => strtolower($p->current_status) === strtolower($statusFilter));
         }
-
-        // Manual Pagination karena difilter dari Collection
         $perPage = 10;
         $currentPage = \Illuminate\Pagination\Paginator::resolveCurrentPage();
-        $currentItems = $patients->slice(($currentPage - 1) * $perPage, $perPage)->all();
-        $patients = new \Illuminate\Pagination\LengthAwarePaginator($currentItems, count($patients), $perPage);
-        $patients->setPath($request->url());
-
+        $patients = new \Illuminate\Pagination\LengthAwarePaginator(
+            $patients->slice(($currentPage - 1) * $perPage, $perPage)->all(),
+            count($patients), $perPage, $currentPage, ['path' => $request->url()]
+        );
         return view('patients.index', compact('patients'));
     }
 
-    public function create() 
-    { 
-        return view('patients.create'); 
+    public function show($id)
+    {
+        $patient = Patient::with(['visits', 'actions'])->findOrFail($id);
+        $years = $patient->lastVisit ? $patient->lastVisit->tgl_kunjungan->diffInYears(now()) : 0;
+        return view('patients.show', compact('patient', 'years'));
     }
 
+    public function create() { return view('patients.create'); }
+
+    /**
+     * LOGIKA HYBRID: Simpan Pasien + Kunjungan (Jika dipilih)
+     */
     public function store(Request $request) 
     {
-        $request->validate([
-            'no_rm' => 'required|unique:patients,no_rm', 
-            'nama_pasien' => 'required', 
-            'tgl_lahir' => 'required|date', 
-            'jenis_kelamin' => 'required'
-        ]);
-        
-        Patient::create($request->all());
-        return redirect()->route('patients.index')->with('success', 'Pasien berhasil ditambahkan');
+        // 1. Validasi Dasar Pasien
+        $rules = [
+            'no_rm'         => 'required|unique:patients,no_rm', 
+            'nama_pasien'   => 'required|string|max:100', 
+            'nik'           => 'nullable|string|max:20',
+            'tgl_lahir'     => 'required|date', 
+            'jenis_kelamin' => 'required|in:L,P',
+            'alamat_lengkap'=> 'nullable|string'
+        ];
+
+        // 2. Jika user mencentang 'catat_kunjungan', tambahkan validasi kunjungan
+        if ($request->has('catat_kunjungan')) {
+            $rules['tgl_kunjungan'] = 'required|date';
+            $rules['poli_tujuan']   = 'required|string';
+            $rules['nama_dokter']   = 'required|string';
+            $rules['diagnosa']      = 'required|string';
+        }
+
+        $request->validate($rules);
+
+        try {
+            DB::beginTransaction();
+
+            // 3. Simpan Data Pasien
+            $patient = Patient::create($request->only([
+                'no_rm', 'nama_pasien', 'nik', 'tgl_lahir', 'jenis_kelamin', 'alamat_lengkap'
+            ]));
+
+            // 4. Simpan Data Kunjungan (Jika ada)
+            if ($request->has('catat_kunjungan')) {
+                Visit::create([
+                    'no_registrasi' => 'REG-' . date('Ymd') . '-' . rand(100, 999),
+                    'patient_id'    => $patient->id,
+                    'tgl_kunjungan' => $request->tgl_kunjungan,
+                    'poli_tujuan'   => $request->poli_tujuan,
+                    'dokter'        => $request->nama_dokter,
+                    'diagnosa'      => $request->diagnosa,
+                    'user_id'       => auth()->id(),
+                ]);
+            }
+
+            DB::commit();
+            return redirect()->route('patients.index')->with('success', 'Pasien' . ($request->has('catat_kunjungan') ? ' & Kunjungan Pertama' : '') . ' berhasil disimpan!');
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            Log::error("Error Store Patient Hybrid: " . $e->getMessage());
+            return back()->withErrors(['error' => 'Gagal menyimpan: ' . $e->getMessage()])->withInput();
+        }
     }
 
-    public function edit($id) 
-    {
-        $patient = Patient::findOrFail($id);
-        return view('patients.edit', compact('patient'));
-    }
+    public function edit($id) { return view('patients.edit', ['patient' => Patient::findOrFail($id)]); }
 
     public function update(Request $request, $id) 
     {
@@ -96,113 +123,50 @@ class PatientController extends Controller
             'nama_pasien' => 'required',
             'tgl_lahir' => 'required|date',
         ]);
+        $patient->update($request->only(['no_rm', 'nik', 'nama_pasien', 'tgl_lahir', 'jenis_kelamin', 'alamat_lengkap']));
         
-        $patient->update($request->except('tgl_kunjungan_terakhir'));
-
-        // Logika update atau create kunjungan terakhir secara manual
+        // Logika update kunjungan terakhir (Jika ada perubahan manual)
         if ($request->filled('tgl_kunjungan_terakhir')) {
+            $patient->update(['manual_status' => null]); 
             $lastVisit = $patient->lastVisit;
+            $dataVisit = [
+                'tgl_kunjungan' => $request->tgl_kunjungan_terakhir,
+                'poli_tujuan'   => $request->poli_tujuan ?? 'Umum',
+                'dokter'        => $request->nama_dokter ?? 'Admin Update',
+                'diagnosa'      => $request->diagnosa_terakhir ?? 'Update Manual',
+            ];
+
             if ($lastVisit) {
-                $lastVisit->update(['tgl_kunjungan' => $request->tgl_kunjungan_terakhir]);
+                $lastVisit->update($dataVisit);
             } else {
-                Visit::create([
-                    'no_registrasi' => 'MAN-' . time(),
-                    'patient_id' => $patient->id,
-                    'tgl_kunjungan' => $request->tgl_kunjungan_terakhir,
-                    'dokter' => 'Admin Edit',
-                    'user_id' => auth()->id()
-                ]);
+                Visit::create(array_merge($dataVisit, ['no_registrasi' => 'MAN-'.time(), 'patient_id' => $patient->id, 'user_id' => auth()->id()]));
             }
         }
-
-        return redirect()->route('patients.index')->with('success', 'Data Pasien diperbarui!');
+        return redirect()->route('patients.index')->with('success', 'Data diperbarui!');
     }
 
-    /**
-     * Hapus Satuan dengan Proteksi Foreign Key
-     */
-    public function destroy($id)
-    {
-        try {
-            DB::beginTransaction();
-            $patient = Patient::findOrFail($id);
-
-            // 1. Bersihkan tabel anak agar tidak error 1451
-            DB::table('retention_actions')->where('patient_id', $id)->delete();
-            Visit::where('patient_id', $id)->delete();
-
-            // 2. Hapus data utama
-            $patient->delete();
-
-            DB::commit();
-            return back()->with('success', 'Data pasien dan seluruh riwayatnya berhasil dihapus permanen.');
-        } catch (\Exception $e) {
-            DB::rollBack();
-            Log::error("Gagal Hapus Pasien: " . $e->getMessage());
-            return back()->with('error', 'Gagal menghapus data: ' . $e->getMessage());
-        }
+    public function destroy($id) {
+        $p = Patient::findOrFail($id);
+        $p->visits()->delete();
+        $p->delete();
+        return back()->with('success', 'Data dihapus.');
     }
 
-    /**
-     * Import Data dari Excel
-     */
-    public function import(Request $request)
-    {
-        $request->validate([
-            'file' => 'required|mimes:xlsx,xls,csv|max:10240',
-        ]);
-
+    public function import(Request $request) {
+        $request->validate(['file' => 'required|mimes:xlsx,xls,csv|max:10240']);
         try {
             Excel::import(new PatientsImport, $request->file('file'));
-            return back()->with('success', 'Data Pasien BERHASIL diimpor!');
-        } catch (\Maatwebsite\Excel\Validators\ValidationException $e) {
-            $failures = $e->failures();
-            return back()->withErrors(['file' => 'Gagal Validasi: Cek baris ke-' . $failures[0]->row()]);
+            return back()->with('success', 'Import Berhasil!');
         } catch (\Exception $e) {
-            return back()->withErrors(['file' => 'Gagal Import: ' . $e->getMessage()]);
+            return back()->withErrors(['file' => 'Gagal: ' . $e->getMessage()]);
         }
     }
 
-    /**
-     * Aksi Massal (Hapus/Cetak)
-     */
-    public function bulkAction(Request $request)
-    {
-        if (!$request->has('ids') || !$request->has('action_type')) {
-            return back()->with('error', 'Tidak ada data yang dipilih.');
-        }
-
+    public function bulkAction(Request $request) {
+        if (!$request->has('ids') || $request->action_type !== 'hapus') return back();
         $ids = explode(',', $request->ids);
-        $action = $request->action_type;
-
-        try {
-            DB::beginTransaction();
-
-            switch ($action) {
-                case 'hapus':
-                    // Bersihkan relasi dulu
-                    DB::table('retention_actions')->whereIn('patient_id', $ids)->delete();
-                    Visit::whereIn('patient_id', $ids)->delete();
-                    
-                    // Hapus Pasien
-                    Patient::whereIn('id', $ids)->delete();
-                    $message = count($ids) . " data pasien berhasil dihapus permanen.";
-                    break;
-
-                case 'cetak_kartu':
-                    $message = "Fitur cetak kartu massal sedang disiapkan.";
-                    break;
-
-                default:
-                    return back()->with('error', 'Tindakan tidak dikenal.');
-            }
-
-            DB::commit();
-            return back()->with('success', $message);
-
-        } catch (\Exception $e) {
-            DB::rollBack();
-            return back()->with('error', 'Kesalahan Aksi Massal: ' . $e->getMessage());
-        }
+        Visit::whereIn('patient_id', $ids)->delete();
+        Patient::whereIn('id', $ids)->delete();
+        return back()->with('success', count($ids) . ' data dihapus.');
     }
 }

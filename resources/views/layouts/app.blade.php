@@ -3,138 +3,215 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SIMeRA - Sistem Informasi Manajemen Retensi Arsip</title>
+    <title>SIMeRA - @yield('title')</title>
     
+    <!-- Bootstrap 5 CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Font Google: Plus Jakarta Sans (Kunci tampilan premium) -->
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <!-- Tailwind CSS (Utility Classes) -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
-    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     
+    <!-- Alpine.js (Diperbaiki: Menggunakan defer agar inisialisasi aman) -->
+    <script src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
+
     <style>
-        body { font-family: 'Plus Jakarta Sans', sans-serif; }
-        [x-cloak] { display: none !important; } 
-        .sidebar-scroll::-webkit-scrollbar { width: 4px; }
-        .sidebar-scroll::-webkit-scrollbar-track { background: #064e3b; }
-        .sidebar-scroll::-webkit-scrollbar-thumb { background: #10b981; border-radius: 10px; }
+        body { font-family: 'Plus Jakarta Sans', sans-serif; background-color: #f8fafc; }
+        [x-cloak] { display: none !important; }
+        
+        /* SIDEBAR PREMIUM STYLING */
+        .sidebar {
+            width: 280px;
+            background-color: #064e3b; /* Emerald 900 */
+            color: white;
+            min-height: 100vh;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            z-index: 1000;
+            flex-shrink: 0;
+        }
+
+        .nav-link {
+            color: #d1fae5; /* Emerald 100 */
+            padding: 0.85rem 1.5rem;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            font-size: 0.875rem;
+            font-weight: 600;
+            border-radius: 12px;
+            margin: 0.25rem 1rem;
+            transition: all 0.2s ease;
+        }
+
+        .nav-link:hover {
+            background-color: rgba(255, 255, 255, 0.08);
+            color: white;
+            transform: translateX(4px);
+        }
+
+        .nav-link.active {
+            background-color: #10b981; /* Emerald 500 */
+            color: white;
+            box-shadow: 0 10px 15px -3px rgba(16, 185, 129, 0.2), 0 4px 6px -2px rgba(16, 185, 129, 0.1);
+        }
+
+        .sub-nav-link {
+            padding: 0.6rem 1rem 0.6rem 2.5rem;
+            font-size: 0.8rem;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            color: rgba(209, 250, 229, 0.6);
+            border-radius: 10px;
+            margin: 0.1rem 1rem 0.1rem 1.5rem;
+            font-weight: 500;
+            transition: all 0.2s;
+        }
+
+        .sub-nav-link:hover, .sub-nav-link.active-sub {
+            color: white;
+            background-color: rgba(255, 255, 255, 0.05);
+        }
+
+        .rotate-180 { transform: rotate(180deg); }
+        .sidebar-header { border-bottom: 1px solid rgba(255, 255, 255, 0.05); }
+        
+        /* Custom scrollbar untuk sidebar */
+        .sidebar::-webkit-scrollbar { width: 4px; }
+        .sidebar::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.1); border-radius: 10px; }
     </style>
 </head>
-<body x-data="{ showUserModal: false, showGuideModal: false }" class="bg-gray-50 flex h-screen overflow-hidden text-gray-800">
+<body class="flex min-h-screen">
 
-    <aside class="w-64 bg-emerald-900 text-white flex-shrink-0 flex flex-col shadow-2xl z-20">
-        
-        <div class="h-16 flex items-center px-6 bg-emerald-950 border-b border-emerald-800 shadow-sm">
-            <svg class="w-8 h-8 text-emerald-400 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path>
-            </svg>
-            <span class="font-bold text-xl tracking-wide uppercase italic">SIMeRA</span>
+    <!-- SIDEBAR NAVIGATION -->
+    <aside class="sidebar sticky-top overflow-y-auto flex flex-col">
+        <div class="p-6 mb-6 sidebar-header flex items-center gap-3">
+            <div class="w-11 h-11 bg-white/10 rounded-2xl flex items-center justify-center border border-white/20 shadow-xl">
+                <svg class="w-7 h-7 text-emerald-400" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+                    <path d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"></path>
+                </svg>
+            </div>
+            <div class="flex flex-col">
+                <span class="text-xl font-extrabold tracking-tighter uppercase leading-none">SIMeRA</span>
+                <span class="text-[9px] font-bold text-emerald-400/60 uppercase tracking-[0.2em] mt-1">Management System</span>
+            </div>
         </div>
 
-        <nav class="flex-1 overflow-y-auto py-4 px-3 space-y-1 sidebar-scroll">
+        <ul class="nav flex-column flex-1">
+            <li class="nav-item">
+                <a href="{{ route('dashboard') }}" class="nav-link {{ request()->routeIs('dashboard') ? 'active' : '' }}">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"></path></svg>
+                    Dashboard
+                </a>
+            </li>
+
+            <div class="px-7 mt-8 mb-2 text-[10px] font-black text-emerald-400/40 uppercase tracking-[0.3em]">Data Master</div>
             
-            <a href="{{ route('dashboard') }}" class="flex items-center px-3 py-2.5 rounded-lg transition-all group {{ request()->routeIs('dashboard') ? 'bg-emerald-800 text-white shadow-lg' : 'text-emerald-100 hover:bg-emerald-800/50 hover:text-white' }}">
-                <svg class="w-5 h-5 mr-3 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"></path></svg>
-                <span class="font-medium text-sm">Dashboard</span>
-            </a>
+            <li class="nav-item">
+                <a href="{{ route('patients.index') }}" class="nav-link {{ request()->is('master/patients*') ? 'active' : '' }}">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"></path></svg>
+                    Data Pasien
+                </a>
+            </li>
+            
+            <li class="nav-item">
+                <a href="{{ route('visits.index') }}" class="nav-link {{ request()->is('master/visits*') ? 'active' : '' }}">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"></path></svg>
+                    Data Kunjungan
+                </a>
+            </li>
 
-            <div x-data="{ open: {{ request()->is('patients*') || request()->is('users*') || request()->is('visits*') ? 'true' : 'false' }} }" class="space-y-1 pt-2">
-                <button @click="open = !open" class="flex items-center justify-between w-full px-3 py-2.5 rounded-lg transition-all text-emerald-100 hover:bg-emerald-800/50 hover:text-white group">
-                    <div class="flex items-center">
-                        <svg class="w-5 h-5 mr-3 text-emerald-400/70 group-hover:text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path></svg>
-                        <span class="font-medium text-sm">Master Data</span>
+            <div class="px-7 mt-8 mb-2 text-[10px] font-black text-emerald-400/40 uppercase tracking-[0.3em]">Kearsipan</div>
+
+            <!-- MENU RETENSI DENGAN LOGIKA BOLEAN PHP STANDAR -->
+            <li class="nav-item" x-data="{ open: {{ request()->is('retensi*') ? 'true' : 'false' }} }">
+                <a href="javascript:void(0)" @click="open = !open" class="nav-link justify-between {{ request()->is('retensi*') ? 'active' : '' }}">
+                    <div class="flex items-center gap-3">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                        Retensi RM
                     </div>
-                    <svg class="w-4 h-4 transition-transform duration-300" :class="open ? 'rotate-180 text-white' : 'text-emerald-500'" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
-                </button>
-                <div x-show="open" x-cloak class="pl-4 space-y-1">
-                    <div class="border-l-2 border-emerald-800 pl-4 space-y-1">
-                        @if(auth()->user()->level === 'admin')
-                            <a href="{{ route('users.index') }}" class="block px-3 py-2 rounded-lg text-sm transition-colors {{ request()->routeIs('users.*') ? 'text-white font-semibold bg-emerald-800' : 'text-emerald-300 hover:text-white hover:bg-emerald-800/50' }}">Data Pengguna</a>
-                        @endif
-                        <a href="{{ route('patients.index') }}" class="block px-3 py-2 rounded-lg text-sm transition-colors {{ request()->routeIs('patients.*') ? 'text-white font-semibold bg-emerald-800' : 'text-emerald-300 hover:text-white hover:bg-emerald-800/50' }}">Data Pasien</a>
-                        <a href="{{ route('visits.index') }}" class="block px-3 py-2 rounded-lg text-sm transition-colors {{ request()->routeIs('visits.*') ? 'text-white font-semibold bg-emerald-800' : 'text-emerald-300 hover:text-white hover:bg-emerald-800/50' }}">Data Kunjungan</a>
-                    </div>
+                    <small :class="open ? 'rotate-180' : ''" class="transition-transform duration-300">▼</small>
+                </a>
+                <div x-show="open" x-cloak x-transition.origin.top class="space-y-1 py-1">
+                    <a href="{{ route('retensi.index') }}" class="sub-nav-link {{ request()->routeIs('retensi.index') ? 'text-white bg-white/5 font-bold' : '' }}">
+                        <span class="w-1.5 h-1.5 rounded-full {{ request()->routeIs('retensi.index') ? 'bg-emerald-400' : 'bg-white/20' }}"></span>
+                        Daftar Utama
+                    </a>
+                    <a href="{{ route('retensi.pemilahan') }}" class="sub-nav-link {{ request()->routeIs('retensi.pemilahan') ? 'text-white bg-white/5 font-bold' : '' }}">
+                        <span class="w-1.5 h-1.5 rounded-full {{ request()->routeIs('retensi.pemilahan') ? 'bg-blue-400 animate-pulse shadow-[0_0_8px_rgba(96,165,250,1)]' : 'bg-white/20' }}"></span>
+                        Pemilahan Berkas
+                    </a>
                 </div>
-            </div>
+            </li>
 
-            <a href="{{ route('retensi.index') }}" class="flex items-center px-3 py-2.5 rounded-lg transition-all group {{ request()->routeIs('retensi.*') ? 'bg-emerald-800 text-white shadow-lg' : 'text-emerald-100 hover:bg-emerald-800/50 hover:text-white' }}">
-                <svg class="w-5 h-5 mr-3 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-                <span class="font-medium text-sm">Retensi RM</span>
-            </a>
-            <a href="{{ route('pemusnahan.index') }}" class="flex items-center px-3 py-2.5 rounded-lg transition-all group {{ request()->routeIs('pemusnahan.*') ? 'bg-emerald-800 text-white shadow-lg' : 'text-emerald-100 hover:bg-emerald-800/50 hover:text-white' }}">
-                <svg class="w-5 h-5 mr-3 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
-                <span class="font-medium text-sm">Pemusnahan RM</span>
-            </a>
-            @if(auth()->user()->level !== 'petugas')
-            <a href="{{ route('laporan.index') }}" class="flex items-center px-3 py-2.5 rounded-lg transition-all group {{ request()->routeIs('laporan.*') ? 'bg-emerald-800 text-white shadow-lg' : 'text-emerald-100 hover:bg-emerald-800/50 hover:text-white' }}">
-                <svg class="w-5 h-5 mr-3 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
-                <span class="font-medium text-sm">Pelaporan & Statistik</span>
-            </a>
+            <li class="nav-item">
+                <a href="{{ route('pemusnahan.index') }}" class="nav-link {{ request()->is('pemusnahan*') ? 'active' : '' }}">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                    Pemusnahan RM
+                </a>
+            </li>
+
+            <li class="nav-item">
+                <a href="{{ route('laporan.index') }}" class="nav-link {{ request()->is('laporan*') ? 'active' : '' }}">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+                    Pelaporan & BA
+                </a>
+            </li>
+
+            @if(auth()->user() && strtolower(auth()->user()->level) === 'admin')
+            <li class="nav-item">
+                <a href="{{ route('users.index') }}" class="nav-link {{ request()->is('master/users*') ? 'active' : '' }}">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path></svg>
+                    Manajemen User
+                </a>
+            </li>
             @endif
-        </nav>
+        </ul>
 
-        <div class="mt-auto border-t border-emerald-800 bg-emerald-950/30">
-            <button @click="showGuideModal = true" class="w-full flex items-center px-6 py-4 transition-all text-emerald-100 hover:bg-emerald-800/50 hover:text-white group">
-                <svg class="w-5 h-5 mr-3 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.168.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.168.477-4.5 1.253"></path></svg>
-                <span class="font-bold text-sm tracking-wide">Petunjuk Teknis</span>
-            </button>
-
-            <div class="border-t border-emerald-800 p-4">
-                <div class="flex items-center gap-3">
-                    <button @click="showUserModal = true" class="flex flex-1 items-center gap-3 min-w-0 text-left group transition-all">
-                        <div class="w-9 h-9 rounded-full bg-emerald-500 flex items-center justify-center font-bold text-white text-sm shadow-sm ring-2 ring-emerald-900 group-hover:ring-emerald-400 overflow-hidden">
-                            @if(Auth::user()->foto)
-                                <img src="{{ asset('storage/'.Auth::user()->foto) }}" class="w-full h-full object-cover">
-                            @else
-                                {{ substr(Auth::user()->nama_lengkap ?? 'U', 0, 1) }}
-                            @endif
-                        </div>
-                        <div class="flex-1 min-w-0">
-                            <p class="text-sm font-bold text-emerald-50 truncate leading-tight group-hover:text-white">{{ Auth::user()->nama_lengkap }}</p>
-                            <p class="text-[10px] text-emerald-400 font-medium truncate uppercase tracking-widest">{{ auth()->user()->level }}</p>
-                        </div>
-                    </button>
-                    <form action="{{ route('logout') }}" method="POST">
-                        @csrf
-                        <button type="submit" class="text-emerald-500 hover:text-red-400 transition-colors p-1"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"></path></svg></button>
-                    </form>
-                </div>
-            </div>
+        <!-- LOGOUT -->
+        <div class="p-6 mt-auto border-t border-white/5 mx-4 mb-4">
+            <form action="{{ route('logout') }}" method="POST">
+                @csrf
+                <button type="submit" class="w-full py-3 bg-red-500/10 text-red-400 hover:bg-red-500 hover:text-white rounded-2xl text-xs font-black transition-all flex items-center justify-center gap-3">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"></path></svg>
+                    KELUAR SISTEM
+                </button>
+            </form>
         </div>
     </aside>
 
-    <main class="flex-1 flex flex-col relative overflow-hidden bg-slate-50">
-        <header class="h-16 bg-white shadow-sm flex items-center justify-between px-8 z-10 border-b border-gray-100">
-            <h2 class="text-xl font-bold text-gray-800 tracking-tight">@yield('title', 'Dashboard Utama')</h2>
-        </header>
-        <div class="flex-1 overflow-y-auto p-8 scroll-smooth">@yield('content')</div>
-    </main>
-
-    <div x-show="showUserModal" x-cloak class="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-emerald-950/60 backdrop-blur-sm">
-        <div @click.away="showUserModal = false" class="bg-white rounded-3xl shadow-2xl w-full max-w-sm overflow-hidden animate-fade-in-up">
-            <div class="h-24 bg-gradient-to-r from-emerald-800 to-emerald-600 relative"></div>
-            <div class="px-6 pb-8 text-center -mt-12 relative">
-                <div class="w-24 h-24 rounded-2xl bg-white p-1 mx-auto shadow-xl">
-                    <div class="w-full h-full rounded-xl bg-emerald-100 flex items-center justify-center overflow-hidden">
-                        @if(Auth::user()->foto)
-                            <img src="{{ asset('storage/'.Auth::user()->foto) }}" class="w-full h-full object-cover">
-                        @else
-                            <svg class="w-12 h-12 text-emerald-300" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clip-rule="evenodd"></path></svg>
-                        @endif
-                    </div>
+    <!-- MAIN CONTENT AREA -->
+    <main class="flex-grow min-h-screen overflow-x-hidden flex flex-col">
+        <!-- TOPBAR -->
+        <nav class="bg-white/90 backdrop-blur-xl sticky top-0 px-8 py-4 border-b border-slate-200 flex justify-between items-center z-50 shadow-sm">
+            <div class="flex items-center gap-3">
+                <div class="h-8 w-1.5 bg-emerald-600 rounded-full"></div>
+                <h1 class="text-sm font-black text-slate-800 uppercase tracking-widest">
+                    @yield('title')
+                </h1>
+            </div>
+            
+            <div class="flex items-center gap-4">
+                <div class="text-right hidden md:block">
+                    <p class="text-xs font-black text-slate-900 uppercase leading-none">{{ auth()->user()->nama_lengkap ?? 'Administrator' }}</p>
+                    <p class="text-[9px] text-emerald-600 font-bold uppercase tracking-widest mt-1">{{ auth()->user()->level ?? 'Level Akses' }}</p>
                 </div>
-                <div class="mt-4">
-                    <h3 class="text-lg font-black text-gray-800 uppercase italic">SIMeRA</h3>
-                    <p class="text-base font-bold text-gray-700 leading-tight mt-1">{{ Auth::user()->nama_lengkap }}</p>
-                    <p class="text-[10px] font-bold text-emerald-600 uppercase tracking-widest mt-1">{{ auth()->user()->level }}</p>
-                </div>
-                <div class="mt-6 space-y-2 text-left">
-                    <div class="p-3 bg-gray-50 rounded-xl border border-gray-100"><p class="text-[9px] text-gray-400 font-bold uppercase">NIP / Kode Petugas</p><p class="text-sm font-medium text-gray-700">{{ Auth::user()->nip ?? '-' }}</p></div>
-                </div>
-                <div class="mt-8 flex gap-2">
-                    <button @click="showUserModal = false" class="flex-1 px-4 py-2.5 bg-gray-100 text-gray-600 rounded-xl text-xs font-bold uppercase">Tutup</button>
-                    <a href="{{ route('users.edit', Auth::user()->id) }}" class="flex-1 px-4 py-2.5 bg-emerald-600 text-white rounded-xl text-xs font-black uppercase text-center shadow-lg shadow-emerald-200">Edit Profil</a>
+                <div class="w-10 h-10 rounded-2xl bg-emerald-100 text-emerald-700 flex items-center justify-center font-black text-sm border-2 border-white shadow-md">
+                    {{ substr(auth()->user()->nama_lengkap ?? 'A', 0, 1) }}
                 </div>
             </div>
-        </div>
-    </div>
+        </nav>
 
-    </body>
+        <div class="p-8 flex-1">
+            @yield('content')
+        </div>
+        
+        <footer class="p-8 pt-0 text-[10px] text-slate-400 font-bold uppercase tracking-widest text-center">
+            &copy; 2026 Puskesmas Silo 1 - Jember. All Rights Reserved.
+        </footer>
+    </main>
+
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+</body>
 </html>

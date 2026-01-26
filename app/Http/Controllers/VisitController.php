@@ -2,57 +2,38 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Controllers\Controller;
 use App\Models\Visit;
 use App\Models\Patient;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
+use Carbon\Carbon;
+use Illuminate\Support\Facades\Auth;
 
 class VisitController extends Controller
 {
     /**
-     * Membatasi akses Kepala Puskesmas agar hanya bisa melihat (View Only)
-     */
-    public function __construct()
-    {
-        $this->middleware(function ($request, $next) {
-            $restrictedActions = ['create', 'store', 'edit', 'update', 'destroy', 'bulkAction'];
-            
-            if (auth()->user()->level === 'kepala' && in_array($request->route()->getActionMethod(), $restrictedActions)) {
-                return redirect()->route('visits.index')->with('error', 'Akses Ditolak! Kepala Puskesmas hanya memiliki hak akses Lihat Data.');
-            }
-
-            return $next($request);
-        });
-    }
-
-    /**
-     * Menampilkan daftar kunjungan dengan pencarian, filter waktu, dan pengurutan.
+     * Tampilkan daftar riwayat kunjungan dengan pencarian dan filter waktu.
      */
     public function index(Request $request)
     {
-        // 1. Inisialisasi Query dengan Eager Loading History Pasien
-        $query = Visit::with(['patient.visits' => function($q) {
-            $q->latest('tgl_kunjungan');
-        }]);
+        // Gunakan Eager Loading untuk efisiensi query
+        $query = Visit::with('patient');
 
-        // 2. Logika Pencarian Teks
+        // Perbaikan Sintaks Pencarian (Gunakan penggabungan string yang benar)
         if ($request->filled('search')) {
             $search = $request->search;
-            $query->where(function($q) use ($search) {
-                $q->whereHas('patient', function($sub) use ($search) {
-                    $sub->where('nama_pasien', 'like', "%{$search}%")
-                        ->orWhere('no_rm', 'like', "%{$search}%");
-                })->orWhere('dokter', 'like', "%{$search}%")
-                  ->orWhere('no_registrasi', 'like', "%{$search}%");
+            $query->whereHas('patient', function($q) use ($search) {
+                $q->where('nama_pasien', 'like', '%' . $search . '%')
+                  ->orWhere('no_rm', 'like', '%' . $search . '%');
             });
         }
 
-        // 3. LOGIKA FILTER WAKTU
+        // Filter Waktu Kunjungan
         if ($request->filled('filter_time')) {
-            $now = now();
+            $now = Carbon::now();
             switch ($request->filter_time) {
                 case 'minggu': 
-                    $query->where('tgl_kunjungan', '>=', $now->subWeek()); 
+                    $query->where('tgl_kunjungan', '>=', $now->startOfWeek()); 
                     break;
                 case '3_bulan': 
                     $query->where('tgl_kunjungan', '>=', $now->subMonths(3)); 
@@ -61,7 +42,7 @@ class VisitController extends Controller
                     $query->where('tgl_kunjungan', '>=', $now->subMonths(6)); 
                     break;
                 case '1_tahun': 
-                    $query->where('tgl_kunjungan', '>=', $now->subYear()); 
+                    $query->where('tgl_kunjungan', '>=', $now->subYears(1)); 
                     break;
                 case '2_tahun': 
                     $query->where('tgl_kunjungan', '>=', $now->subYears(2)); 
@@ -72,44 +53,99 @@ class VisitController extends Controller
             }
         }
 
-        // 4. LOGIKA PENGURUTAN (Sort Order)
-        // Default: 'desc' (Paling Baru)
-        $sortOrder = $request->get('sort_order', 'desc');
-        $query->orderBy('tgl_kunjungan', $sortOrder === 'asc' ? 'asc' : 'desc');
-
-        // 5. Eksekusi Query dengan Pagination
-        $visits = $query->paginate(10);
+        $sort = $request->get('sort_order', 'desc');
+        $visits = $query->orderBy('tgl_kunjungan', $sort)->paginate(10);
 
         return view('visits.index', compact('visits'));
     }
 
     /**
-     * Menghapus satu data kunjungan
+     * Tampilkan form pembuatan kunjungan baru.
      */
-    public function destroy($id)
+    public function create()
     {
-        $visit = Visit::findOrFail($id);
-        $visit->delete();
-
-        return back()->with('success', 'Data kunjungan berhasil dihapus.');
+        $patients = Patient::orderBy('nama_pasien')->get();
+        return view('visits.create', compact('patients'));
     }
 
     /**
-     * Aksi Massal (Hapus banyak data sekaligus)
+     * Simpan data kunjungan baru ke database.
      */
-    public function bulkAction(Request $request)
+    public function store(Request $request)
     {
-        if (!$request->has('ids') || !$request->has('action_type')) {
-            return back()->with('error', 'Pilih data dan tindakan terlebih dahulu.');
-        }
+        $request->validate([
+            'patient_id'    => 'required|exists:patients,id',
+            'tgl_kunjungan' => 'required|date',
+            'poli_tujuan'   => 'required|string',
+            'dokter'        => 'required|string',
+            'diagnosa'      => 'required|string',
+        ]);
 
-        $ids = explode(',', $request->ids);
+        // Generate No Registrasi Unik
+        $no_reg = 'REG-' . date('Ymd') . '-' . rand(100, 999);
+
+        Visit::create([
+            'no_registrasi' => $no_reg,
+            'patient_id'    => $request->patient_id,
+            'tgl_kunjungan' => $request->tgl_kunjungan,
+            'poli_tujuan'   => $request->poli_tujuan,
+            'dokter'        => $request->dokter,
+            'diagnosa'      => $request->diagnosa,
+            'user_id'       => Auth::id(),
+        ]);
+
+        return redirect()->route('visits.index')->with('success', 'Kunjungan berhasil dicatat!');
+    }
+
+    /**
+     * Menampilkan Detail Kunjungan (Lembar Medis Klinis Selayar Penuh)
+     */
+    public function show($id)
+    {
+        $visit = Visit::with(['patient', 'user'])->findOrFail($id);
+        return view('visits.show', compact('visit'));
+    }
+
+    /**
+     * Form edit riwayat kunjungan.
+     */
+    public function edit($id)
+    {
+        $visit = Visit::findOrFail($id);
+        $patients = Patient::orderBy('nama_pasien')->get();
+        return view('visits.edit', compact('visit', 'patients'));
+    }
+
+    /**
+     * Update riwayat kunjungan.
+     */
+    public function update(Request $request, $id)
+    {
+        $visit = Visit::findOrFail($id);
         
-        if ($request->action_type === 'hapus') {
-            Visit::whereIn('id', $ids)->delete();
-            return back()->with('success', count($ids) . ' data kunjungan berhasil dihapus massal.');
-        }
+        $request->validate([
+            'tgl_kunjungan' => 'required|date',
+            'poli_tujuan'   => 'required|string',
+            'dokter'        => 'required|string',
+            'diagnosa'      => 'required|string',
+        ]);
 
-        return back();
+        $visit->update([
+            'tgl_kunjungan' => $request->tgl_kunjungan,
+            'poli_tujuan'   => $request->poli_tujuan,
+            'dokter'        => $request->dokter,
+            'diagnosa'      => $request->diagnosa,
+        ]);
+
+        return redirect()->route('visits.index')->with('success', 'Riwayat kunjungan diperbarui!');
+    }
+
+    /**
+     * Hapus riwayat kunjungan.
+     */
+    public function destroy($id)
+    {
+        Visit::findOrFail($id)->delete();
+        return redirect()->route('visits.index')->with('success', 'Data riwayat kunjungan telah dihapus.');
     }
 }
