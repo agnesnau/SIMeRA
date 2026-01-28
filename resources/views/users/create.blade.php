@@ -12,7 +12,6 @@
         </a>
     </div>
 
-    <!-- Tampilkan Error Validasi -->
     @if ($errors->any())
         <div class="mb-4 bg-red-50 text-red-600 p-4 rounded-lg text-sm border-l-4 border-red-500">
             <strong class="block mb-1">Terjadi Kesalahan:</strong>
@@ -27,7 +26,6 @@
     <form action="{{ route('users.store') }}" method="POST">
         @csrf
         
-        <!-- 1. Input NIP -->
         <div class="mb-5">
             <label for="nip" class="block mb-2 text-sm font-medium text-gray-700">NIP</label>
             <input type="text" name="nip" id="nip" value="{{ old('nip') }}" required 
@@ -35,7 +33,6 @@
                 placeholder="Nomor Induk Pegawai">
         </div>
 
-        <!-- 2. Input Nama Lengkap -->
         <div class="mb-5">
             <label for="nama_lengkap" class="block mb-2 text-sm font-medium text-gray-700">Nama Lengkap</label>
             <input type="text" name="nama_lengkap" id="nama_lengkap" value="{{ old('nama_lengkap') }}" required 
@@ -43,7 +40,6 @@
                 placeholder="Nama Lengkap User">
         </div>
 
-        <!-- 3. Input Username (PENTING: Ganti Email jadi Username) -->
         <div class="mb-5">
             <label for="username" class="block mb-2 text-sm font-medium text-gray-700">Username</label>
             <input type="text" name="username" id="username" value="{{ old('username') }}" required 
@@ -52,7 +48,6 @@
             <p class="text-xs text-gray-500 mt-1">Digunakan untuk login sistem.</p>
         </div>
 
-        <!-- 4. Input Password -->
         <div class="mb-5">
             <label for="password" class="block mb-2 text-sm font-medium text-gray-700">Password</label>
             <input type="password" name="password" id="password" required 
@@ -60,19 +55,19 @@
                 placeholder="Minimal 6 karakter">
         </div>
 
-        <!-- 5. Input Level -->
         <div class="mb-6">
             <label for="level" class="block mb-2 text-sm font-medium text-gray-700">Level Akses</label>
             <select name="level" id="level" required 
                 class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-emerald-500 focus:border-emerald-500 outline-none bg-white">
                 <option value="" disabled selected>Pilih Level...</option>
+                
                 <option value="admin" {{ old('level') == 'admin' ? 'selected' : '' }}>Admin (Akses Penuh)</option>
                 <option value="petugas" {{ old('level') == 'petugas' ? 'selected' : '' }}>Petugas (Rekam Medis)</option>
-                <option value="kepala_puskesmas" {{ old('level') == 'kepala_puskesmas' ? 'selected' : '' }}>Kepala Puskesmas</option>
+                
+                <option value="supervisor" {{ old('level') == 'supervisor' ? 'selected' : '' }}>Kepala Puskesmas</option>
             </select>
         </div>
 
-        <!-- Tombol Aksi -->
         <div class="flex justify-end gap-3 pt-4 border-t border-gray-100">
             <button type="reset" class="px-5 py-2.5 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors font-medium">
                 Reset

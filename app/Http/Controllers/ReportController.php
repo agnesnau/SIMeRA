@@ -30,7 +30,6 @@ class ReportController extends Controller
     public function index()
     {
         // === [UPDATE LOGIKA HITUNGAN DASHBOARD] ===
-        // Sesuai Request: "JUMLAH INAKTIF HANYA DARI PEMILAHAN BERKAS"
         
         // 1. Total Inaktif (Kandidat Retensi) = HANYA yang statusnya 'pemilahan'
         $totalInaktif = Patient::where('manual_status', 'pemilahan')->count();
@@ -87,7 +86,7 @@ class ReportController extends Controller
                                   ->with('lastVisit')
                                   ->get();
         } else {
-            // BA PEMUSNAHAN -> Ambil dari 'siap_musnah'
+            // BA PEMUSNAHAN
             $nama_p1    = $request->input('nama_ketua'); 
             $nip_p1     = "-"; 
             $nama_p2    = ""; 
@@ -98,15 +97,17 @@ class ReportController extends Controller
             $jabatan_p1 = "Ketua Tim Pemusnah";
             $jabatan_p2 = "";
 
-            // Query: HANYA yang statusnya 'siap_musnah' (atau sudah dimusnahkan)
-            $data_berkas = Patient::whereIn('manual_status', ['siap_musnah', 'dimusnahkan'])
+            // --- [PERBAIKAN DISINI] ---
+            // Hanya ambil yang 'siap_musnah'. 
+            // Data yang 'dimusnahkan' DIKECUALIKAN agar tidak muncul lagi.
+            $data_berkas = Patient::where('manual_status', 'siap_musnah')
                                   ->with('lastVisit')
                                   ->get();
         }
 
         $total_berkas = $request->input('total_berkas') ?? $data_berkas->count();
 
-        // Simpan/Update Report (Pakai updateOrCreate biar gak error Duplicate)
+        // Simpan/Update Report
         GeneratedReport::updateOrCreate(
             ['no_surat' => $no_surat],
             [
@@ -146,7 +147,11 @@ class ReportController extends Controller
                                           ->with('lastVisit')
                                           ->get();
         } else {
-            // Reprint Musnah -> Cari yang 'siap_musnah'/'dimusnahkan'
+            // Reprint Musnah 
+            // NOTE: Jika Anda ingin reprint data lama yang sudah dimusnahkan tetap muncul,
+            // gunakan whereIn. Tapi untuk konsistensi 'data saat ini', gunakan where siap_musnah.
+            // Di sini saya biarkan whereIn agar HISTORY tetap bisa dicetak, 
+            // tapi saat Generate Baru (fungsi di atas) hanya ambil siap_musnah.
             $data['data_berkas'] = Patient::whereIn('manual_status', ['siap_musnah', 'dimusnahkan'])
                                           ->with('lastVisit')
                                           ->get();

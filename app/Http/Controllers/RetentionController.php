@@ -3,32 +3,33 @@
 namespace App\Http\Controllers;
 
 use App\Models\Patient;
+use App\Models\Visit; 
 use App\Models\RetentionAction;
 use Illuminate\Http\Request;
 use Carbon\Carbon;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 
 class RetentionController extends Controller
 {
     /**
      * Menampilkan Daftar Retensi Utama
-     * LOGIKA: Tabel HANYA menampilkan data Inaktif (< 4 Tahun) yang butuh Pemilahan.
+     * Menampilkan data Inaktif (2-4 Tahun) yang belum masuk tahap pemilahan.
+     * UPDATE: Exclude > 4 Tahun (sudah di halaman pemusnahan) dan < 2 Tahun (masih aktif).
      */
     public function index(Request $request)
     {
-        // 1. QUERY DASAR
-        // Kita join dengan tabel visits agar bisa sorting berdasarkan tgl_kunjungan
+        // 1. Query dasar
         $query = Patient::query()
             ->with(['lastVisit', 'actions'])
             ->leftJoin('visits', function($join) {
-                // Join subquery untuk mendapatkan kunjungan terakhir setiap pasien
                 $join->on('patients.id', '=', 'visits.patient_id')
                      ->whereRaw('visits.id = (select max(id) from visits where visits.patient_id = patients.id)');
             })
             ->select('patients.*', 'visits.tgl_kunjungan as last_visit_date');
 
-        // 2. LOGIKA PENCARIAN
+        // 2. Pencarian
         if ($request->filled('search')) {
             $search = $request->search;
             $query->where(function($q) use ($search) {
@@ -37,22 +38,13 @@ class RetentionController extends Controller
             });
         }
 
-        // 3. LOGIKA SORTING (BARU DITAMBAHKAN)
-        // Default sort 'desc' (Terbaru dulu)
+        // 3. Sorting
         $sortDirection = $request->input('sort', 'desc'); 
-        
-        // Pastikan hanya menerima 'asc' atau 'desc' untuk keamanan
-        if (!in_array($sortDirection, ['asc', 'desc'])) {
-            $sortDirection = 'desc';
-        }
-
-        // Sorting berdasarkan kolom tgl_kunjungan dari tabel visits yang sudah di-join
         $query->orderBy('last_visit_date', $sortDirection);
 
-        // 4. AMBIL SEMUA DATA (Untuk Perhitungan Status Dinamis)
         $patients = $query->get();
 
-        // 5. HITUNG UMUR & TENTUKAN STATUS DINAMIS
+        // 4. Proses status dan perhitungan umur
         $processedPatients = $patients->map(function ($patient) {
             $lastVisitDate = $patient->lastVisit ? $patient->lastVisit->tgl_kunjungan : null;
             $years = $lastVisitDate ? Carbon::parse($lastVisitDate)->diffInYears(now()) : 0;
@@ -62,7 +54,7 @@ class RetentionController extends Controller
             } else {
                 if ($years < 2) {
                     $currentStatus = 'Aktif';
-                } elseif ($years >= 2 && $years < 5) {
+                } elseif ($years >= 2 && $years < 4) {
                     $currentStatus = 'Inaktif';
                 } else {
                     $currentStatus = 'Siap Musnah';
@@ -71,49 +63,40 @@ class RetentionController extends Controller
 
             $patient->calculated_years = $years;
             $patient->current_status = $currentStatus;
-
             return $patient;
         });
 
-        // 6. FILTER: HANYA TAMPILKAN DATA RETENSI (BUANG YANG AKTIF)
+        // 5. FILTER UTAMA: 
+        // HANYA STATUS 'INAKTIF' (2-4 TAHUN)
+        // EXCLUDE 'AKTIF' (<2) DAN 'SIAP MUSNAH' (>4)
         $processedPatients = $processedPatients->filter(function ($patient) {
-            // Logika: Ambil kalau statusnya BUKAN 'Aktif'
-            return $patient->current_status !== 'Aktif';
+            return $patient->current_status === 'Inaktif' && $patient->manual_status !== 'pemilahan';
         });
 
-        // 7. FILTER STATUS (Diterapkan setelah pemetaan status dinamis)
         if ($request->filled('status')) {
             $processedPatients = $processedPatients->where('current_status', $request->status);
         }
 
-        // 8. HITUNG STATISTIK (Perlu query terpisah agar statistik tetap akurat meski di-filter/sort)
-        // Kita query ulang raw data untuk statistik global
+        // 6. Statistik
         $allPatientsForStats = Patient::with('lastVisit')->get()->map(function($p) {
             $last = $p->lastVisit ? $p->lastVisit->tgl_kunjungan : null;
             $y = $last ? Carbon::parse($last)->diffInYears(now()) : 0;
-            
-            if($p->manual_status == 'siap_musnah') return 'siap_musnah';
-            if($p->manual_status == 'dimusnahkan') return 'dimusnahkan';
-            if($p->manual_status == 'pemilahan') return 'pemilahan';
-
+            if($p->manual_status) return $p->manual_status;
             if($y < 2) return 'aktif';
-            if($y >= 2 && $y < 5) return 'inaktif';
+            if($y >= 2 && $y < 4) return 'inaktif';
             return 'siap_musnah';
         });
 
         $stats = [
-            'total_aktif'   => $allPatientsForStats->filter(fn($s) => $s == 'aktif')->count(),
-            'total_inaktif' => $allPatientsForStats->filter(fn($s) => $s == 'inaktif')->count(),
-            'siap_musnah'   => $allPatientsForStats->filter(fn($s) => $s == 'siap_musnah')->count(),
+            'total_aktif'     => $allPatientsForStats->filter(fn($s) => $s == 'aktif')->count(),
+            'total_inaktif'   => $allPatientsForStats->filter(fn($s) => $s == 'inaktif')->count(),
+            'total_pemilahan' => $allPatientsForStats->filter(fn($s) => $s == 'pemilahan')->count(),
+            'siap_musnah'     => $allPatientsForStats->filter(fn($s) => $s == 'siap_musnah')->count(),
         ];
 
-        // 9. PAGINATION MANUAL
-        // Penting: Saat melakukan pagination pada Collection yang sudah di-sort query-nya, 
-        // urutannya akan tetap terjaga.
+        // 7. Pagination
         $page = $request->input('page', 1);
         $perPage = 10;
-        
-        // Reset keys agar index array urut (penting untuk JSON/View looping)
         $currentPageResults = $processedPatients->values()->slice(($page - 1) * $perPage, $perPage);
 
         $paginatedPatients = new LengthAwarePaginator(
@@ -128,22 +111,61 @@ class RetentionController extends Controller
     }
 
     /**
-     * PROSES PEMILAHAN: Pindahkan Inaktif ke Gudang (Menu Pemilahan)
+     * PROSES SATUAN: Kirim ke Meja Pemilahan
      */
     public function sendToSorting($id)
     {
         $patient = Patient::findOrFail($id);
-        
-        // Tandai berkas masuk tahap pemilahan
         $patient->update(['manual_status' => 'pemilahan']);
 
         RetentionAction::create([
             'patient_id'  => $id,
-            'user_id'     => auth()->id() ?? 1,
+            'user_id'     => auth()->id(),
             'action_type' => 'pindah_pemilahan',
-            'keterangan'  => 'Berkas inaktif diajukan untuk proses pemilahan fisik ke gudang.'
+            'keterangan'  => 'Berkas dipindahkan ke Meja Pemilahan fisik di gudang.'
         ]);
 
-        return back()->with('success', 'Berkas dikirim ke Meja Pemilahan.');
+        return back()->with('success', 'Data Pasien berhasil dipindahkan ke Meja Pemilahan.');
+    }
+
+    /**
+     * AKSI MASSAL (Bulk Action)
+     */
+    public function bulkAction(Request $request) 
+    {
+        if (!$request->filled('ids')) {
+            return back()->with('error', 'Silakan pilih pasien terlebih dahulu melalui checkbox.');
+        }
+
+        if (!$request->filled('action_type')) {
+            return back()->with('error', 'Pilih tindakan (Hapus/Pindah) yang ingin dilakukan pada data terpilih.');
+        }
+        
+        $ids = explode(',', $request->ids);
+        $jumlah = count($ids);
+
+        if ($request->action_type === 'hapus') {
+            Visit::whereIn('patient_id', $ids)->delete();
+            RetentionAction::whereIn('patient_id', $ids)->delete();
+            Patient::whereIn('id', $ids)->delete();
+            
+            return back()->with('success', "Berhasil! Sebanyak $jumlah data pasien telah dihapus secara permanen dari sistem.");
+            
+        } elseif ($request->action_type === 'pindah') {
+            Patient::whereIn('id', $ids)->update(['manual_status' => 'pemilahan']);
+            
+            foreach($ids as $id) {
+                RetentionAction::create([
+                    'patient_id'  => $id,
+                    'user_id'     => auth()->id(),
+                    'action_type' => 'pindah_pemilahan',
+                    'keterangan'  => 'Berkas dipindahkan secara massal ke Meja Pemilahan.'
+                ]);
+            }
+            
+            return back()->with('success', "Berhasil! Sebanyak $jumlah berkas telah dipindahkan ke daftar Meja Pemilahan.");
+        }
+
+        return back()->with('error', 'Tindakan tidak dikenali oleh sistem.');
     }
 }

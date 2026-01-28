@@ -5,21 +5,17 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>SIMeRA - @yield('title')</title>
     
-    <!-- Bootstrap 5 CSS -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
-    <!-- Font Google: Plus Jakarta Sans (Kunci tampilan premium) -->
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&display=swap" rel="stylesheet">
-    <!-- Tailwind CSS (Utility Classes) -->
     <script src="https://cdn.tailwindcss.com"></script>
     
-    <!-- Alpine.js (Diperbaiki: Menggunakan defer agar inisialisasi aman) -->
     <script src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
 
     <style>
         body { font-family: 'Plus Jakarta Sans', sans-serif; background-color: #f8fafc; }
         [x-cloak] { display: none !important; }
         
-        /* SIDEBAR PREMIUM STYLING */
+        /* SIDEBAR STYLING */
         .sidebar {
             width: 280px;
             background-color: #064e3b; /* Emerald 900 */
@@ -31,7 +27,7 @@
         }
 
         .nav-link {
-            color: #d1fae5; /* Emerald 100 */
+            color: #d1fae5;
             padding: 0.85rem 1.5rem;
             display: flex;
             align-items: center;
@@ -50,7 +46,7 @@
         }
 
         .nav-link.active {
-            background-color: #10b981; /* Emerald 500 */
+            background-color: #10b981;
             color: white;
             box-shadow: 0 10px 15px -3px rgba(16, 185, 129, 0.2), 0 4px 6px -2px rgba(16, 185, 129, 0.1);
         }
@@ -75,15 +71,12 @@
 
         .rotate-180 { transform: rotate(180deg); }
         .sidebar-header { border-bottom: 1px solid rgba(255, 255, 255, 0.05); }
-        
-        /* Custom scrollbar untuk sidebar */
         .sidebar::-webkit-scrollbar { width: 4px; }
         .sidebar::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.1); border-radius: 10px; }
     </style>
 </head>
 <body class="flex min-h-screen">
 
-    <!-- SIDEBAR NAVIGATION -->
     <aside class="sidebar sticky-top overflow-y-auto flex flex-col">
         <div class="p-6 mb-6 sidebar-header flex items-center gap-3">
             <div class="w-11 h-11 bg-white/10 rounded-2xl flex items-center justify-center border border-white/20 shadow-xl">
@@ -123,7 +116,6 @@
 
             <div class="px-7 mt-8 mb-2 text-[10px] font-black text-emerald-400/40 uppercase tracking-[0.3em]">Kearsipan</div>
 
-            <!-- MENU RETENSI DENGAN LOGIKA BOLEAN PHP STANDAR -->
             <li class="nav-item" x-data="{ open: {{ request()->is('retensi*') ? 'true' : 'false' }} }">
                 <a href="javascript:void(0)" @click="open = !open" class="nav-link justify-between {{ request()->is('retensi*') ? 'active' : '' }}">
                     <div class="flex items-center gap-3">
@@ -144,19 +136,37 @@
                 </div>
             </li>
 
-            <li class="nav-item">
-                <a href="{{ route('pemusnahan.index') }}" class="nav-link {{ request()->is('pemusnahan*') ? 'active' : '' }}">
-                    <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
-                    Pemusnahan RM
+           <li class="nav-item" x-data="{ open: {{ request()->is('pemusnahan*') ? 'true' : 'false' }} }">
+                <a href="javascript:void(0)" @click="open = !open" class="nav-link justify-between {{ request()->is('pemusnahan*') ? 'active' : '' }}">
+                    <div class="flex items-center gap-3">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                        Pemusnahan RM
+                    </div>
+                    <small :class="open ? 'rotate-180' : ''" class="transition-transform duration-300">▼</small>
                 </a>
+
+                <div x-show="open" x-cloak x-transition.origin.top class="space-y-1 py-1">
+                    
+                    <a href="{{ route('pemusnahan.index') }}" class="sub-nav-link {{ request()->routeIs('pemusnahan.index') ? 'text-white bg-white/5 font-bold' : '' }}">
+                        <span class="w-1.5 h-1.5 rounded-full {{ request()->routeIs('pemusnahan.index') ? 'bg-red-400' : 'bg-white/20' }}"></span>
+                        Daftar Utama
+                    </a>
+
+                    <a href="{{ route('pemusnahan.eksekusi') }}" class="sub-nav-link {{ request()->routeIs('pemusnahan.eksekusi') ? 'text-white bg-white/5 font-bold' : '' }}">
+                        <span class="w-1.5 h-1.5 rounded-full {{ request()->routeIs('pemusnahan.eksekusi') ? 'bg-red-600 animate-pulse shadow-[0_0_8px_rgba(220,38,38,1)]' : 'bg-white/20' }}"></span>
+                        Eksekusi
+                    </a>
+                </div>
             </li>
 
+            @if(auth()->user() && auth()->user()->level !== 'petugas')
             <li class="nav-item">
                 <a href="{{ route('laporan.index') }}" class="nav-link {{ request()->is('laporan*') ? 'active' : '' }}">
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
                     Pelaporan & BA
                 </a>
             </li>
+            @endif
 
             @if(auth()->user() && strtolower(auth()->user()->level) === 'admin')
             <li class="nav-item">
@@ -168,7 +178,6 @@
             @endif
         </ul>
 
-        <!-- LOGOUT -->
         <div class="p-6 mt-auto border-t border-white/5 mx-4 mb-4">
             <form action="{{ route('logout') }}" method="POST">
                 @csrf
@@ -180,9 +189,7 @@
         </div>
     </aside>
 
-    <!-- MAIN CONTENT AREA -->
     <main class="flex-grow min-h-screen overflow-x-hidden flex flex-col">
-        <!-- TOPBAR -->
         <nav class="bg-white/90 backdrop-blur-xl sticky top-0 px-8 py-4 border-b border-slate-200 flex justify-between items-center z-50 shadow-sm">
             <div class="flex items-center gap-3">
                 <div class="h-8 w-1.5 bg-emerald-600 rounded-full"></div>
@@ -211,7 +218,6 @@
         </footer>
     </main>
 
-    <!-- Bootstrap JS -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>

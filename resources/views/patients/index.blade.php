@@ -2,8 +2,8 @@
 @section('title', 'Master Data Pasien')
 
 @section('content')
+{{-- PEMBUNGKUS UTAMA HARUS DI ATAS --}}
 <div class="space-y-6">
-    
     <!-- NOTIFIKASI ERROR/SUKSES -->
     @if(session('success'))
     <div class="bg-emerald-50 border-l-4 border-emerald-500 p-4 rounded shadow-sm">
@@ -44,7 +44,9 @@
     <div class="bg-white p-4 rounded-xl shadow-sm border border-gray-100 flex flex-col md:flex-row justify-between items-center gap-4">
         <form action="{{ route('patients.index') }}" method="GET" class="flex flex-col md:flex-row gap-3 w-full md:w-auto">
             <div class="relative w-full md:w-64">
-                <span class="absolute inset-y-0 left-0 pl-3 flex items-center text-gray-400">
+                <span class="absolute inset-y-0 left-0 pl
+                
+                -3 flex items-center text-gray-400">
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
                 </span>
                 <input type="text" name="search" value="{{ request('search') }}" placeholder="Cari Nama / No RM..." 
@@ -56,10 +58,12 @@
                 <option value="Aktif" {{ request('status') == 'Aktif' ? 'selected' : '' }}>Aktif (Pelayanan)</option>
                 <option value="Inaktif" {{ request('status') == 'Inaktif' ? 'selected' : '' }}>Inaktif (> 2 Tahun)</option>
                 <option value="Siap Musnah" {{ request('status') == 'Siap Musnah' ? 'selected' : '' }}>Siap Musnah (> 4 Tahun)</option>
+                <option value="digudang" {{ request('status') == 'digudang' ? 'selected' : '' }}>📁 Arsip Di Gudang</option>
+                <option value="dimusnahkan" {{ request('status') == 'dimusnahkan' ? 'selected' : '' }}>⚠️ Dimusnahkan</option>
             </select>
         </form>
 
-        @if(strtolower(auth()->user()->level) !== 'kepala')
+        @if(strtolower(auth()->user()->level) !== 'supervisor')
         <div class="flex gap-2">
             <button onclick="document.getElementById('importModal').classList.remove('hidden')" class="px-4 py-2 bg-blue-50 text-blue-600 border border-blue-200 rounded-lg text-sm hover:bg-blue-100 transition flex items-center gap-2 font-bold">
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path></svg>
@@ -97,7 +101,7 @@
             <table class="w-full text-sm text-left">
                 <thead class="bg-gray-50 text-gray-600 font-bold border-b-2 border-gray-200">
                     <tr>
-                        @if(strtolower(auth()->user()->level) !== 'kepala')
+                        @if(strtolower(auth()->user()->level) !== 'supervisor')
                         <th class="px-6 py-4 text-center w-12 bg-gray-50">
                             <input type="checkbox" id="pilih-semua" class="w-4 h-4 text-emerald-600 rounded border-gray-300 cursor-pointer">
                         </th>
@@ -112,7 +116,7 @@
                 <tbody class="divide-y divide-gray-100">
                     @forelse($patients as $p)
                     <tr class="hover:bg-gray-50 transition-colors group">
-                        @if(strtolower(auth()->user()->level) !== 'kepala')
+                        @if(strtolower(auth()->user()->level) !== 'supervisor')
                         <td class="px-6 py-4 text-center">
                             <input type="checkbox" class="check-pasien w-4 h-4 text-emerald-600 rounded border-gray-300 cursor-pointer" value="{{ $p->id }}">
                         </td>
@@ -134,12 +138,34 @@
                         </td>
 
                         <td class="px-6 py-4 text-center">
-                            @php $status = $p->current_status; @endphp
-                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold border uppercase tracking-wide
-                                {{ $status == 'Aktif' ? 'bg-green-100 text-green-800 border-green-200' : ($status == 'Inaktif' ? 'bg-yellow-100 text-yellow-800 border-yellow-200' : 'bg-red-100 text-red-800 border-red-200') }}">
-                                {{ $status }}
-                            </span>
-                        </td>
+    {{-- LOGIKA PRIORITAS: Cek Status Manual Dulu --}}
+    
+    @if($p->manual_status === 'digudang')
+        {{-- 1. JIKA SUDAH DI GUDANG --}}
+        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-gray-100 text-gray-800 border border-gray-200 uppercase tracking-wide">
+            📁 Di Gudang
+        </span>
+
+    @elseif($p->manual_status === 'pemilahan')
+        {{-- 2. JIKA SEDANG DIPILAH --}}
+        <span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-200 uppercase tracking-wide animate-pulse">
+            ⚠️ Sedang Dipilah
+        </span>
+
+    @else
+        {{-- 3. JIKA TIDAK ADA STATUS MANUAL, BARU HITUNG TANGGAL (OTOMATIS) --}}
+        @php 
+            $status = $p->current_status; // Mengambil dari Accessor Model
+        @endphp
+        
+        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold border uppercase tracking-wide
+            {{ $status == 'Aktif' ? 'bg-emerald-100 text-emerald-800 border-emerald-200' : 
+              ($status == 'Inaktif' ? 'bg-yellow-100 text-yellow-800 border-yellow-200' : 
+              'bg-red-100 text-red-800 border-red-200') }}">
+            {{ $status }}
+        </span>
+    @endif
+</td>
 
                         <td class="px-6 py-4 text-center">
                             <div class="flex items-center justify-center gap-2">
@@ -153,7 +179,7 @@
                                     <span class="text-[11px] font-black uppercase">Detail</span>
                                 </a>
 
-                                @if(strtolower(auth()->user()->level) !== 'kepala')
+                                @if(strtolower(auth()->user()->level) !== 'supervisor')
                                     <a href="{{ route('patients.edit', $p->id) }}" class="p-2 bg-blue-50 text-blue-600 rounded-lg border border-blue-200 hover:bg-blue-100 transition shadow-sm" title="Edit Data">
                                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path></svg>
                                     </a>
@@ -178,7 +204,7 @@
 </div>
 
 <!-- 4. MODAL IMPORT EXCEL -->
-@if(strtolower(auth()->user()->level) !== 'kepala')
+@if(strtolower(auth()->user()->level) !== 'supervisor')
 <div id="importModal" class="fixed inset-0 bg-gray-900/60 backdrop-blur-sm hidden z-[100] flex items-center justify-center p-4">
     <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden">
         <div class="bg-blue-600 p-4 text-white flex justify-between items-center">

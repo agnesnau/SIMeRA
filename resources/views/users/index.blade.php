@@ -47,7 +47,7 @@
                             <span class="px-2.5 py-1 rounded-full text-xs font-semibold bg-purple-100 text-purple-700 border border-purple-200">
                                 Admin
                             </span>
-                        @elseif($user->level == 'kepala_puskesmas')
+                        @elseif($user->level == 'supervisor')
                             <span class="px-2.5 py-1 rounded-full text-xs font-semibold bg-orange-100 text-orange-700 border border-orange-200">
                                 Kepala Puskesmas
                             </span>

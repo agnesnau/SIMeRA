@@ -7,13 +7,14 @@ use App\Http\Controllers\PatientController;
 use App\Http\Controllers\VisitController;
 use App\Http\Controllers\RetentionController;
 use App\Http\Controllers\DestructionController; 
+use App\Http\Controllers\EksekusiController;
 use App\Http\Controllers\Auth\LoginController;
 use App\Http\Controllers\ReportController;
 use App\Http\Controllers\PemilahanController;
 
 /*
 |--------------------------------------------------------------------------
-| Web Routes - Sistem SIMeRA (Puskesmas Silo 1)
+| Web Routes - Sistem SIMeRA (Fixed Priority)
 |--------------------------------------------------------------------------
 */
 
@@ -22,70 +23,94 @@ Route::get('/login', [LoginController::class, 'showLoginForm'])->name('login');
 Route::post('/login', [LoginController::class, 'login']);
 Route::post('/logout', [LoginController::class, 'logout'])->name('logout');
 
-Route::middleware(['auth'])->group(function () {
-    
-    Route::get('/', function() { return redirect('/dashboard'); });
 
-    // --- DASHBOARD & MONITORING ---
+// ==============================================================================
+// PRIORITAS 1: GRUP EKSEKUTOR (ADMIN & PETUGAS)
+// ==============================================================================
+Route::middleware(['auth', 'level:admin,petugas'])->group(function () {
+    
+    // --- PASIEN & KUNJUNGAN (CRUD) ---
+    Route::resource('master/patients', PatientController::class)->except(['index', 'show']);
+    Route::post('master/patients/import', [PatientController::class, 'import'])->name('patients.import');
+    Route::post('master/patients/bulk-action', [PatientController::class, 'bulkAction'])->name('patients.bulkAction');
+    
+    Route::resource('master/visits', VisitController::class)->except(['index', 'show']);
+    Route::post('master/visits/bulk-action', [VisitController::class, 'bulkAction'])->name('visits.bulkAction');
+
+    // --- AKSI RETENSI ---
+    Route::prefix('retensi')->group(function() {
+        Route::post('/{id}/ke-pemilahan', [RetentionController::class, 'sendToSorting'])->name('retensi.sendToSorting');
+        
+        // PERBAIKAN DI SINI:
+        Route::post('/pemilahan/{id}/selesai', [PemilahanController::class, 'finishSorting'])->name('retensi.pemilahan.selesai');
+        
+        // Pastikan ini mengarah ke PemilahanController
+        Route::post('/sorting/finish-all', [PemilahanController::class, 'finishAllSorting'])->name('sorting.finishAll'); 
+        
+        Route::post('/{id}/move-destruction', [RetentionController::class, 'moveToDestruction'])->name('retensi.moveToDestruction');
+        Route::post('/bulk', [RetentionController::class, 'bulkAction'])->name('retensi.bulkAction');
+    });
+
+    // --- AKSI PEMUSNAHAN ---
+    Route::prefix('pemusnahan')->group(function() {
+        Route::post('/{id}/assess', [DestructionController::class, 'storeAssessment'])->name('pemusnahan.assess');
+        Route::post('/eksekusi/{id}', [EksekusiController::class, 'destroy'])->name('pemusnahan.execute');
+        Route::post('/bulk', [DestructionController::class, 'bulkAction'])->name('pemusnahan.bulkAction');
+        Route::post('/{id}/restore', [DestructionController::class, 'restore'])->name('pemusnahan.restore');
+    });
+
+});
+
+
+// ==============================================================================
+// PRIORITAS 2: GRUP VIEW ONLY (ADMIN, PETUGAS, SUPERVISOR)
+// ==============================================================================
+Route::middleware(['auth', 'level:admin,petugas,supervisor'])->group(function () {
+    
+    Route::get('/', function() { return redirect()->route('dashboard'); });
+
+    // --- DASHBOARD ---
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
     Route::get('/dashboard/activities', [DashboardController::class, 'refreshActivities'])->name('dashboard.activities');
     
-    // --- MASTER DATA (STRUKTUR LAMA) ---
-    Route::prefix('master')->group(function () {
-        // Manajemen Pengguna
-        Route::resource('users', UserController::class); 
-        
-        // Manajemen Pasien (Lengkap dengan Import & Bulk Action)
-        Route::post('patients/import', [PatientController::class, 'import'])->name('patients.import');
-        Route::post('patients/bulk-action', [PatientController::class, 'bulkAction'])->name('patients.bulkAction');
-        Route::resource('patients', PatientController::class); // Support Full-Page Show (Resume Medis)
-        
-        // Manajemen Kunjungan (Lengkap dengan Bulk Action)
-        Route::post('visits/bulk-action', [VisitController::class, 'bulkAction'])->name('visits.bulkAction');
-        Route::resource('visits', VisitController::class); // Support Full-Page Show (Lembar Medis)
-    });
-    
-    // --- MODUL RETENSI (STRUKTUR LAMA + PROPOSED/HISTORY) ---
+    // --- MASTER DATA (READ ONLY) ---
+    Route::resource('master/patients', PatientController::class)->only(['index', 'show']);
+    Route::resource('master/visits', VisitController::class)->only(['index', 'show']);
+
+    // --- RETENSI (READ ONLY) ---
     Route::prefix('retensi')->group(function() {
-        // Daftar Utama
         Route::get('/', [RetentionController::class, 'index'])->name('retensi.index');
-        
-        // FITUR BARU: Pemilahan RM (Wajib ada agar rute di Canvas tidak error)
-        Route::get('/pemilahan', [PemilahanController::class, 'index'])->name('retensi.pemilahan');
-        Route::post('/pemilahan/{id}/selesai', [PemilahanController::class, 'finishSorting'])->name('retensi.pemilahan.selesai');
-        
-        // Aksi Transisi
-        Route::post('/{id}/ke-pemilahan', [RetentionController::class, 'sendToSorting'])->name('retensi.sendToSorting');
-        Route::post('/{id}/verify', [RetentionController::class, 'verifyPhysical'])->name('retensi.verify');
-        Route::post('/{id}/move', [RetentionController::class, 'moveToDestruction'])->name('retensi.move');
-        
+        Route::get('/pemilahan', [PemilahanController::class, 'index'])->name('retensi.pemilahan'); 
         Route::get('/proposed', [RetentionController::class, 'proposed'])->name('retensi.proposed');
         Route::get('/history', [RetentionController::class, 'history'])->name('retensi.history');
-        Route::post('/bulk', [RetentionController::class, 'bulkAction'])->name('retensi.bulkAction');
     });
     
-    // --- MODUL PEMUSNAHAN (STRUKTUR LAMA + PROPOSED/HISTORY) ---
+    // --- PEMUSNAHAN (READ ONLY) ---
     Route::prefix('pemusnahan')->group(function() {
         Route::get('/', [DestructionController::class, 'index'])->name('pemusnahan.index');
-        Route::get('/proposed', [DestructionController::class, 'proposed'])->name('pemusnahan.proposed');
+        Route::get('/eksekusi', [EksekusiController::class, 'index'])->name('pemusnahan.eksekusi');
         Route::get('/history', [DestructionController::class, 'history'])->name('pemusnahan.history');
-        Route::post('/bulk', [DestructionController::class, 'bulkAction'])->name('pemusnahan.bulkAction');
-
-        // ALIAS UNTUK MENCEGAH ERROR (SINKRON DENGAN VIEW BAHASA INGGRIS)
-        Route::get('/index-alias', [DestructionController::class, 'index'])->name('destruction.index');
-        Route::post('/bulk-alias-pm', [DestructionController::class, 'bulkAction'])->name('destruction.bulkAction');
-        
-        // Aksi Individu
-        Route::post('/{id}/restore', [DestructionController::class, 'restore'])->name('pemusnahan.restore');
-        Route::post('/{id}/execute', [DestructionController::class, 'destroyPermanent'])->name('pemusnahan.execute');
+        Route::get('/eksekusi', [EksekusiController::class, 'index'])->name('pemusnahan.eksekusi');
+        Route::post('/eksekusi/finish-all', [EksekusiController::class, 'destroyAll'])->name('pemusnahan.executeAll');
+        });
     });
 
-    // --- MODUL PELAPORAN ---
-Route::prefix('laporan')->name('laporan.')->group(function () {
-    Route::get('/', [ReportController::class, 'index'])->name('index');
-    Route::post('/cetak', [ReportController::class, 'printBeritaAcara'])->name('cetak');
 
-    Route::get('/reprint/{id}', [ReportController::class, 'reprint'])->name('reprint');
-
+// ==============================================================================
+// GRUP 3: PELAPORAN (ADMIN & SUPERVISOR)
+// ==============================================================================
+Route::middleware(['auth', 'level:admin,supervisor'])->group(function () {
+    Route::prefix('laporan')->name('laporan.')->group(function () {
+        Route::get('/', [ReportController::class, 'index'])->name('index');
+        Route::post('/cetak', [ReportController::class, 'printBeritaAcara'])->name('cetak');
+        Route::get('/reprint/{id}', [ReportController::class, 'reprint'])->name('reprint');
+    });
 });
-    });
+
+
+// ==============================================================================
+// GRUP 4: SUPER ADMIN (HANYA ADMIN)
+// ==============================================================================
+Route::middleware(['auth', 'level:admin'])->group(function () {
+    Route::resource('master/users', UserController::class); 
+});

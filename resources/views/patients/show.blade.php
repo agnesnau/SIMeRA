@@ -1,10 +1,9 @@
 @extends('layouts.app')
-@section('title', 'Resume Rekam Medis Pasien')
+@section('title', 'Detail Rekam Medis Pasien')
 
 @section('content')
-<div class="max-w-6xl mx-auto space-y-6 pb-10">
+<div class="max-w-6xl mx-auto space-y-6 pb-10 animate-in fade-in duration-500">
     
-    <!-- 1. HEADER RINGKASAN KLINIS -->
     <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
         <div class="bg-emerald-700 px-8 py-6 text-white flex flex-col md:flex-row justify-between items-center gap-4">
             <div class="flex items-center gap-6 w-full">
@@ -14,7 +13,7 @@
                     </svg>
                 </div>
                 <div>
-                    <h1 class="text-3xl font-black tracking-tight leading-none mb-2">{{ $patient->nama_pasien }}</h1>
+                    <h1 class="text-3xl font-black tracking-tight leading-none mb-2 uppercase">{{ $patient->nama_pasien }}</h1>
                     <div class="flex flex-wrap items-center gap-3 text-sm font-medium text-emerald-100">
                         <span class="bg-white/20 px-3 py-1 rounded-full border border-white/10 font-mono">RM: {{ $patient->no_rm }}</span>
                         <span class="opacity-50">|</span>
@@ -25,16 +24,17 @@
                 </div>
             </div>
             <div class="flex gap-2 w-full md:w-auto">
-                <a href="{{ route('patients.edit', $patient->id) }}" class="flex-1 md:flex-none px-5 py-2.5 bg-white text-emerald-800 rounded-xl text-sm font-bold hover:bg-emerald-50 transition shadow-md">
+                @if(auth()->user()->level !== 'supervisor')
+                <a href="{{ route('patients.edit', $patient->id) }}" class="flex-1 md:flex-none px-5 py-2.5 bg-white text-emerald-800 rounded-xl text-sm font-bold hover:bg-emerald-50 transition shadow-md text-center">
                     Sunting Data
                 </a>
-                <a href="{{ route('patients.index') }}" class="flex-1 md:flex-none px-5 py-2.5 bg-emerald-800 text-white rounded-xl text-sm font-bold hover:bg-emerald-900 transition border border-emerald-600">
+                @endif
+                <a href="{{ route('patients.index') }}" class="flex-1 md:flex-none px-5 py-2.5 bg-emerald-800 text-white rounded-xl text-sm font-bold hover:bg-emerald-900 transition border border-emerald-600 text-center">
                     Kembali
                 </a>
             </div>
         </div>
 
-        <!-- Dashboard Indikator Cepat -->
         <div class="grid grid-cols-2 md:grid-cols-4 divide-x divide-slate-100 border-t border-slate-100 bg-slate-50/50">
             <div class="p-5 text-center">
                 <p class="text-[10px] font-bold text-slate-400 uppercase mb-1">Usia Pasien</p>
@@ -48,21 +48,37 @@
                 <p class="text-[10px] font-bold text-slate-400 uppercase mb-1">Kunjungan Terakhir</p>
                 <p class="text-xl font-black text-slate-700">{{ $patient->lastVisit ? $patient->lastVisit->tgl_kunjungan->format('d/m/Y') : '-' }}</p>
             </div>
+            
             <div class="p-5 text-center">
-                <p class="text-[10px] font-bold text-slate-400 uppercase mb-1">Status Retensi</p>
-                @php $status = $patient->current_status; @endphp
-                <span class="px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-tighter 
-                    {{ $status == 'Aktif' ? 'bg-green-100 text-green-700' : ($status == 'Inaktif' ? 'bg-amber-100 text-amber-700' : 'bg-red-100 text-red-700') }}">
-                    {{ $status }}
-                </span>
+                <p class="text-[10px] font-bold text-slate-400 uppercase mb-1">Status Saat Ini</p>
+                
+                @if($patient->manual_status === 'digudang')
+                    <span class="inline-flex items-center gap-1 px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-tighter bg-gray-100 text-gray-700 border border-gray-200">
+                        📁 Di Gudang
+                    </span>
+                @elseif($patient->manual_status === 'pemilahan')
+                    <span class="inline-flex items-center gap-1 px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-tighter bg-amber-100 text-amber-700 border border-amber-200 animate-pulse">
+                        ⚠️ Sedang Dipilah
+                    </span>
+                @elseif($patient->manual_status === 'dimusnahkan')
+                    <span class="inline-flex items-center gap-1 px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-tighter bg-red-100 text-red-700 border border-red-200">
+                        🔥 Musnah
+                    </span>
+                @else
+                    @php $status = $patient->current_status; @endphp
+                    <span class="px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-tighter 
+                        {{ $status == 'Aktif' ? 'bg-green-100 text-green-700 border border-green-200' : ($status == 'Inaktif' ? 'bg-yellow-100 text-yellow-700 border border-yellow-200' : 'bg-red-100 text-red-700 border border-red-200') }}">
+                        {{ $status }}
+                    </span>
+                @endif
             </div>
         </div>
     </div>
 
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
         
-        <!-- KOLOM KIRI: DETAIL DEMOGRAFI -->
         <div class="lg:col-span-2 space-y-6">
+            
             <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
                 <div class="px-6 py-4 border-b border-slate-100 flex items-center gap-2 bg-slate-50/50">
                     <svg class="w-4 h-4 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
@@ -86,7 +102,6 @@
                 </div>
             </div>
 
-            <!-- TABEL RIWAYAT KUNJUNGAN (HISTORI MEDIS) -->
             <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
                 <div class="px-6 py-4 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
                     <h3 class="font-bold text-slate-700 text-sm uppercase flex items-center gap-2">
@@ -127,63 +142,158 @@
             </div>
         </div>
 
-        <!-- KOLOM KANAN: TRACKER SIKLUS HIDUP ARSIP -->
         <div class="space-y-6">
             
-            <!-- Life-Cycle Card -->
             <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden p-6 border-t-4 border-t-emerald-600">
-                <h3 class="text-xs font-black text-slate-400 uppercase tracking-widest mb-6 flex items-center gap-2">
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
-                    Siklus Hidup Berkas RM
-                </h3>
-                
-                <div class="relative space-y-8 before:absolute before:inset-0 before:ml-5 before:-translate-x-px before:h-full before:w-0.5 before:bg-gradient-to-b before:from-transparent before:via-slate-300 before:to-transparent">
-                    <!-- Step 1: Aktif -->
-                    <div class="relative flex items-center justify-between gap-4">
-                        <div class="flex items-center gap-4">
-                            <div class="w-10 h-10 rounded-full bg-green-500 text-white flex items-center justify-center shadow-lg shadow-green-100 border-4 border-white z-10">
-                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"></path></svg>
-                            </div>
-                            <div>
-                                <h4 class="text-xs font-black text-slate-700 uppercase">Masa Aktif</h4>
-                                <p class="text-[10px] text-slate-400">Penyimpanan Rak Utama</p>
-                            </div>
-                        </div>
-                        <span class="text-[10px] font-bold text-green-600">Selesai</span>
-                    </div>
+    <h3 class="text-xs font-black text-slate-400 uppercase tracking-widest mb-6 flex items-center gap-2">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
+        Siklus Hidup Berkas RM
+    </h3>
+    
+    <div class="relative space-y-8 before:absolute before:inset-0 before:ml-5 before:-translate-x-px before:h-full before:w-0.5 before:bg-gradient-to-b before:from-transparent before:via-slate-300 before:to-transparent">
+        
+        {{-- LOGIKA VARIABLE UMUM --}}
+        @php 
+            $statusManual = $patient->manual_status;
+            $isInaktifTime = $years >= 2;
+            $isSiapMusnahTime = $years >= 5;
+        @endphp
 
-                    <!-- Step 2: Inaktif -->
-                    @php $isInactive = $years >= 2; @endphp
-                    <div class="relative flex items-center justify-between gap-4">
-                        <div class="flex items-center gap-4">
-                            <div class="w-10 h-10 rounded-full {{ $isInactive ? 'bg-amber-500' : 'bg-slate-200' }} text-white flex items-center justify-center border-4 border-white z-10 shadow-lg">
-                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-                            </div>
-                            <div>
-                                <h4 class="text-xs font-black {{ $isInactive ? 'text-slate-700' : 'text-slate-400' }} uppercase">Masa Inaktif</h4>
-                                <p class="text-[10px] text-slate-400">Gudang Penyusutan</p>
-                            </div>
-                        </div>
-                        @if($isInactive) <span class="text-[10px] font-bold text-amber-600">Sedang Berjalan</span> @endif
-                    </div>
-
-                    <!-- Step 3: Penilaian/Musnah -->
-                    @php $isReady = $years >= 4; @endphp
-                    <div class="relative flex items-center justify-between gap-4">
-                        <div class="flex items-center gap-4">
-                            <div class="w-10 h-10 rounded-full {{ $isReady ? 'bg-red-500' : 'bg-slate-100 text-slate-300' }} text-white flex items-center justify-center border-4 border-white z-10 shadow-lg">
-                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
-                            </div>
-                            <div>
-                                <h4 class="text-xs font-black {{ $isReady ? 'text-slate-700' : 'text-slate-400' }} uppercase">Penilaian Akhir</h4>
-                                <p class="text-[10px] text-slate-400">Pemusnahan Berkas</p>
-                            </div>
-                        </div>
-                    </div>
+        <div class="relative flex items-center justify-between gap-4">
+            <div class="flex items-center gap-4">
+                {{-- Ikon Hijau (Selalu Checklist karena ini tahap awal) --}}
+                <div class="w-10 h-10 rounded-full bg-emerald-500 text-white flex items-center justify-center shadow-lg shadow-emerald-100 border-4 border-white z-10">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"></path></svg>
+                </div>
+                <div>
+                    <h4 class="text-xs font-black text-slate-700 uppercase">Masa Aktif</h4>
+                    <p class="text-[10px] text-slate-400">Penyimpanan Rak Utama</p>
                 </div>
             </div>
+            @if($isInaktifTime)
+                <span class="text-[10px] font-bold text-emerald-600">Selesai</span>
+            @else
+                <span class="text-[10px] font-bold text-blue-600 animate-pulse">Sedang Berjalan</span>
+            @endif
+        </div>
 
-            <!-- Digital Asset Card -->
+        @php
+            // Logic Tampilan
+            if ($statusManual || $isInaktifTime) {
+                // Jika sudah manual (gudang/musnah) ATAU waktunya > 2 tahun -> Aktif/Selesai
+                $s2Color = 'bg-amber-500 text-white';
+                $s2TitleClass = 'text-slate-700';
+            } else {
+                // Belum waktunya
+                $s2Color = 'bg-slate-200 text-slate-300';
+                $s2TitleClass = 'text-slate-400';
+            }
+        @endphp
+        <div class="relative flex items-center justify-between gap-4">
+            <div class="flex items-center gap-4">
+                <div class="w-10 h-10 rounded-full {{ $s2Color }} flex items-center justify-center border-4 border-white z-10 shadow-lg">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                </div>
+                <div>
+                    <h4 class="text-xs font-black {{ $s2TitleClass }} uppercase">Masa Inaktif</h4>
+                    <p class="text-[10px] text-slate-400">Retensi Penyusutan</p>
+                </div>
+            </div>
+            @if($statusManual) 
+                <span class="text-[10px] font-bold text-emerald-600">Selesai</span>
+            @elseif($isInaktifTime)
+                <span class="text-[10px] font-bold text-amber-600">Sedang Berjalan</span>
+            @endif
+        </div>
+
+        @php
+            $isGudangDone = in_array($statusManual, ['pemilahan', 'dimusnahkan']);
+            $isGudangActive = $statusManual === 'digudang';
+
+            if ($isGudangDone) {
+                $s3Color = 'bg-emerald-500 text-white'; // Sudah lewat (Hijau)
+                $s3TitleClass = 'text-slate-700';
+                $s3Status = '<span class="text-[10px] font-bold text-emerald-600">Selesai</span>';
+            } elseif ($isGudangActive) {
+                $s3Color = 'bg-blue-600 text-white'; // Sedang disini (Biru)
+                $s3TitleClass = 'text-slate-700';
+                $s3Status = '<span class="text-[10px] font-bold text-blue-600 animate-pulse">Lokasi Saat Ini</span>';
+            } else {
+                $s3Color = 'bg-slate-200 text-slate-300'; // Belum
+                $s3TitleClass = 'text-slate-400';
+                $s3Status = '';
+            }
+        @endphp
+        <div class="relative flex items-center justify-between gap-4">
+            <div class="flex items-center gap-4">
+                <div class="w-10 h-10 rounded-full {{ $s3Color }} flex items-center justify-center border-4 border-white z-10 shadow-lg">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4"></path></svg>
+                </div>
+                <div>
+                    <h4 class="text-xs font-black {{ $s3TitleClass }} uppercase">Arsip Di Gudang</h4>
+                    <p class="text-[10px] text-slate-400">Fisik Tersimpan</p>
+                </div>
+            </div>
+            {!! $s3Status !!}
+        </div>
+
+        @php
+            $isPenilaianDone = $statusManual === 'dimusnahkan';
+            $isPenilaianActive = $statusManual === 'pemilahan' || ($isSiapMusnahTime && !$isPenilaianDone);
+
+            if ($isPenilaianDone) {
+                $s4Color = 'bg-emerald-500 text-white';
+                $s4TitleClass = 'text-slate-700';
+                $s4Status = '<span class="text-[10px] font-bold text-emerald-600">Selesai</span>';
+            } elseif ($isPenilaianActive) {
+                $s4Color = 'bg-orange-500 text-white';
+                $s4TitleClass = 'text-slate-700';
+                $s4Status = '<span class="text-[10px] font-bold text-orange-600">Proses Nilai</span>';
+            } else {
+                $s4Color = 'bg-slate-200 text-slate-300';
+                $s4TitleClass = 'text-slate-400';
+                $s4Status = '';
+            }
+        @endphp
+        <div class="relative flex items-center justify-between gap-4">
+            <div class="flex items-center gap-4">
+                <div class="w-10 h-10 rounded-full {{ $s4Color }} flex items-center justify-center border-4 border-white z-10 shadow-lg">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 022 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"></path></svg>
+                </div>
+                <div>
+                    <h4 class="text-xs font-black {{ $s4TitleClass }} uppercase">Penilaian Akhir</h4>
+                    <p class="text-[10px] text-slate-400">Sortir Nilai Guna</p>
+                </div>
+            </div>
+            {!! $s4Status !!}
+        </div>
+
+        @php
+            if ($statusManual === 'dimusnahkan') {
+                $s5Color = 'bg-red-600 text-white';
+                $s5TitleClass = 'text-slate-700';
+                $s5Status = '<span class="text-[10px] font-bold text-red-600">FINAL</span>';
+            } else {
+                $s5Color = 'bg-slate-200 text-slate-300';
+                $s5TitleClass = 'text-slate-400';
+                $s5Status = '';
+            }
+        @endphp
+        <div class="relative flex items-center justify-between gap-4">
+            <div class="flex items-center gap-4">
+                <div class="w-10 h-10 rounded-full {{ $s5Color }} flex items-center justify-center border-4 border-white z-10 shadow-lg">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                </div>
+                <div>
+                    <h4 class="text-xs font-black {{ $s5TitleClass }} uppercase">Dimusnahkan</h4>
+                    <p class="text-[10px] text-slate-400">Eksekusi Fisik</p>
+                </div>
+            </div>
+            {!! $s5Status !!}
+        </div>
+
+    </div>
+</div>
             <div class="bg-blue-600 rounded-2xl shadow-xl overflow-hidden p-6 text-white relative">
                 <div class="absolute -right-4 -top-4 opacity-10">
                     <svg width="120" height="120" fill="currentColor" viewBox="0 0 24 24"><path d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"></path></svg>

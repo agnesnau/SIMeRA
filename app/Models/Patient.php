@@ -9,7 +9,6 @@ class Patient extends Model
 {
     /**
      * Kolom yang boleh diisi secara massal.
-     * manual_status ditambahkan agar bisa menyimpan status 'siap_musnah' atau 'dimusnahkan'
      */
     protected $fillable = [
         'no_rm', 
@@ -18,7 +17,7 @@ class Patient extends Model
         'tgl_lahir', 
         'jenis_kelamin', 
         'alamat_lengkap', 
-        'manual_status'
+        'manual_status' // Penting untuk status: digudang, pemilahan, siap_musnah, dimusnahkan
     ];
 
     protected $appends = ['current_status'];
@@ -39,31 +38,46 @@ class Patient extends Model
     }
 
     /**
-     * Logika Otomatisasi Status Retensi (SOP 2+2)
-     * Menghasilkan label Aktif/Inaktif/Siap Musnah secara real-time
+     * Logika Otomatisasi Status Retensi (SOP 2+5)
+     * Menggunakan LOGIKA TANGGAL KETAT (subYears) agar hitungan hari akurat.
      */
     public function getCurrentStatusAttribute() {
         // 1. Cek status manual dulu (Prioritas Utama)
+        // Jika ada status manual, kembalikan status tersebut agar konsisten
         if ($this->manual_status) {
             return match($this->manual_status) {
-                'siap_musnah' => 'Siap Musnah',
                 'dimusnahkan' => 'Dimusnahkan',
-                default => 'Aktif'
+                'siap_musnah' => 'Siap Musnah',
+                'digudang'    => 'Inaktif', // Dianggap Inaktif karena sudah di gudang
+                'pemilahan'   => 'Inaktif', // Sedang dipilah berarti masuk masa inaktif
+                default       => 'Aktif'
             };
         }
 
         // 2. Hitung berdasarkan kunjungan terakhir
         $lastVisit = $this->lastVisit;
-        if (!$lastVisit) return 'Inaktif'; 
+        
+        // Jika tidak ada kunjungan, anggap Aktif (Pasien Baru)
+        if (!$lastVisit) return 'Aktif'; 
 
-        $yearsDiff = $lastVisit->tgl_kunjungan->diffInYears(now());
+        $tglKunjungan = Carbon::parse($lastVisit->tgl_kunjungan);
+        
+        // Tentukan Batas Waktu Mundur dari Hari Ini
+        $batasInaktif = now()->subYears(2); // Contoh: Hari ini 2026, batasnya 2024
+        $batasMusnah  = now()->subYears(5); // Contoh: Hari ini 2026, batasnya 2021
 
-        if ($yearsDiff >= 4) {
-            return 'Siap Musnah'; // Total 4 tahun (2 Aktif + 2 Inaktif)
-        } elseif ($yearsDiff >= 2) {
-            return 'Inaktif';     // Sudah 2 tahun tidak berkunjung
-        } else {
-            return 'Aktif';       // Masih dalam masa 2 tahun pelayanan
+        // 3. Logika Perbandingan Tanggal
+        if ($tglKunjungan->lessThanOrEqualTo($batasMusnah)) {
+            // Jika kunjungan SEBELUM tahun 2021 (Sudah > 5 Tahun)
+            return 'Siap Musnah';
+        } 
+        elseif ($tglKunjungan->lessThanOrEqualTo($batasInaktif)) {
+            // Jika kunjungan SEBELUM tahun 2024 (Sudah > 2 Tahun)
+            return 'Inaktif';
+        } 
+        else {
+            // Jika kunjungan SETELAH tahun 2024 (Masih Baru)
+            return 'Aktif';
         }
     }
 }

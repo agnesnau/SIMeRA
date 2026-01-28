@@ -16,8 +16,8 @@ class UserController extends Controller
             $user = auth()->user();
             $routeId = $request->route('id'); // Ambil ID dari URL
 
-            // IZINKAN jika dia Admin
-            if ($user->level === 'admin') {
+            // IZINKAN jika dia Admin (atau Supervisor jika boleh kelola user)
+            if (in_array($user->level, ['admin', 'supervisor'])) {
                 return $next($request);
             }
 
@@ -45,12 +45,13 @@ class UserController extends Controller
 
     public function store(Request $request)
     {
+        // FIX: Tambahkan 'supervisor' di validasi
         $request->validate([
             'nip'          => 'required|unique:users,nip',
             'nama_lengkap' => 'required|max:255',
             'username'     => 'required|unique:users,username',
             'password'     => 'required|min:6',
-            'level'        => 'required|in:admin,petugas,kepala',
+            'level'        => 'required|in:admin,petugas,supervisor', 
         ]);
 
         User::create([
@@ -70,25 +71,24 @@ class UserController extends Controller
         return view('users.edit', compact('user'));
     }
 
-    // PERBAIKAN VITAL DI SINI: Gunakan $id, bukan User $user agar data tidak kosong
+    // --- PERBAIKAN UTAMA DI SINI ---
     public function update(Request $request, $id) 
     {
         $user = User::findOrFail($id);
 
+        // 1. Validasi Input (Pastikan level 'supervisor' diterima)
         $request->validate([
             'nama_lengkap' => 'required|string|max:255',
             'username'     => 'required|string|max:255|unique:users,username,' . $user->id,
             'nip'          => 'nullable|string|max:20',
+            'level'        => 'required|in:admin,petugas,supervisor', // Wajib ada
             'foto'         => 'nullable|image|mimes:jpg,jpeg,png|max:2048',
         ]);
 
-        $data = $request->only(['nama_lengkap', 'username', 'nip']);
+        // 2. Ambil data (Langsung ambil 'level' juga biar tidak ketinggalan)
+        $data = $request->only(['nama_lengkap', 'username', 'nip', 'level']);
 
-        // Hanya Admin yang bisa ganti level orang lain
-        if (auth()->user()->level === 'admin' && $request->has('level')) {
-            $data['level'] = $request->level;
-        }
-
+        // 3. Cek Foto
         if ($request->hasFile('foto')) {
             if ($user->foto && Storage::disk('public')->exists($user->foto)) {
                 Storage::disk('public')->delete($user->foto);
@@ -96,9 +96,16 @@ class UserController extends Controller
             $data['foto'] = $request->file('foto')->store('profil', 'public');
         }
 
+        // 4. Update Password jika diisi
+        if ($request->filled('password')) {
+            $data['password'] = Hash::make($request->password);
+        }
+
+        // 5. Eksekusi Update
         $user->update($data);
 
-        // Jika edit profil sendiri, balik ke dashboard. Jika admin edit orang lain, balik ke index.
+        // 6. Redirect
+        // Jika edit profil sendiri dan bukan admin, balik ke dashboard
         if (auth()->user()->id == $id && auth()->user()->level !== 'admin') {
             return redirect()->route('dashboard')->with('success', 'Profil SIMeRA Anda Berhasil Diperbarui!');
         }

@@ -47,7 +47,7 @@
             <div class="flex flex-col gap-2">
                 <a href="{{ route('patients.show', $visit->patient->id) }}" class="flex items-center justify-center gap-2 py-3 bg-white text-emerald-700 border border-emerald-200 rounded-xl text-xs font-black hover:bg-emerald-50 transition shadow-sm">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
-                    LIHAT RESUME LENGKAP
+                    LIHAT DETAIL KUNJUNGAN
                 </a>
             </div>
         </div>
@@ -100,9 +100,6 @@
                 Dicatat oleh: <span class="text-slate-600">{{ $visit->user->nama_lengkap ?? 'Sistem' }}</span>
             </div>
             <div class="flex gap-2">
-                <button onclick="window.print()" class="px-5 py-2 bg-white text-slate-600 border border-slate-200 rounded-xl text-xs font-black hover:bg-slate-50 transition shadow-sm">
-                    CETAK LEMBAR
-                </button>
                 <a href="{{ route('visits.index') }}" class="px-5 py-2 bg-slate-800 text-white rounded-xl text-xs font-black hover:bg-slate-900 transition shadow-md">
                     KEMBALI KE RIWAYAT
                 </a>

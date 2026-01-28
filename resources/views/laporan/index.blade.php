@@ -67,7 +67,7 @@
             <div class="bg-emerald-600 px-8 py-5 text-white flex justify-between items-center">
                 <div>
                     <h3 class="text-lg font-black uppercase tracking-tight">Berita Acara Retensi</h3>
-                    <p class="text-emerald-100 text-[9px] font-bold uppercase tracking-widest">Penyusutan Berkas Inaktif</p>
+                    <p class="text-emerald-100 text-[9px] font-bold uppercase tracking-widest">Kegiatan Pemilahan Berkas Rekam Medis Inaktif</p>
                 </div>
                 <div class="w-10 h-10 bg-white/10 rounded-xl flex items-center justify-center border border-white/20">
                     <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
@@ -132,7 +132,7 @@
              <div class="bg-red-600 px-8 py-5 text-white flex justify-between items-center">
                 <div>
                     <h3 class="text-lg font-black uppercase tracking-tight">Berita Acara Pemusnahan</h3>
-                    <p class="text-red-100 text-[9px] font-bold uppercase tracking-widest">Eksekusi Fisik Berkas > 4 Thn</p>
+                    <p class="text-red-100 text-[9px] font-bold uppercase tracking-widest">Kegiatan Pemusnahan Fisik Berkas Rekam Medis > 4 Thn</p>
                 </div>
                 <div class="w-10 h-10 bg-white/10 rounded-xl flex items-center justify-center border border-white/20">
                     <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>

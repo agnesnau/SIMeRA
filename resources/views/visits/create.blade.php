@@ -65,10 +65,9 @@
             <label class="block mb-2 text-sm font-medium text-gray-700">Dokter Penanggung Jawab</label>
             <select name="dokter" required class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-emerald-500 focus:border-emerald-500 bg-white">
                 <option value="" disabled selected>-- Pilih Dokter --</option>
-                <option value="dr. Suharyo, Sp.PD">dr. Suharyo, Sp.PD</option>
-                <option value="dr. Mulyadi, Sp.B">dr. Mulyadi, Sp.B</option>
-                <option value="dr. Indah Permatasari">dr. Indah Permatasari</option>
-                <option value="dr. Pratiwi Kartika">dr. Pratiwi Kartika</option>
+                <option value="dr Adi Wijaya SE">dr Adi Wijaya SE</option>
+                <option value="Bidan Fitri Amd.keb">Bidan Fitri Amd.keb</option>
+                <option value="drg. Luk Luk Nurhayati">drg. Luk Luk Nurhayati</option>
             </select>
         </div>
 

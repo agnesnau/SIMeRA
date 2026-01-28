@@ -137,7 +137,7 @@
                 <td>{{ $jabatan_p1 }}</td>
             </tr>
             <tr>
-                <td colspan="3" style="padding: 5px 0;">Selanjutnya disebut <strong>PIHAK PERTAMA</strong>.</td>
+                <td colspan="3" style="padding: 5px 0;">Selanjutnya disebut <strong>PIHAK PERTAMA(Pelaksana Retensi)</strong>.</td>
             </tr>
             <tr>
                 <td>2. Nama</td>
@@ -155,14 +155,15 @@
                 <td>{{ $jabatan_p2 }}</td>
             </tr>
             <tr>
-                <td colspan="3" style="padding: 5px 0;">Selanjutnya disebut <strong>PIHAK KEDUA</strong>.</td>
+                <td colspan="3" style="padding: 5px 0;">Selanjutnya disebut <strong>PIHAK KEDUA (Saksi)</strong>.</td>
             </tr>
         </table>
 
         <div class="content">
-            <p>PIHAK PERTAMA menyerahkan arsip rekam medis inaktif tahun <strong>{{ $rentang_tahun }}</strong> kepada PIHAK KEDUA untuk disimpan di Gudang Arsip Inaktif (Retensi). PIHAK KEDUA menerima penyerahan tersebut dengan rincian jumlah berkas:</p>
+            <p>Bahwa berdasarkan Surat Keputusan Kepala Puskesmas Silo 1 Nomor: <strong>{{ $sk_kapus }}</strong>, bersama ini PIHAK PERTAMA dan PIHAK KEDUA menyatakan bahwa pada hari dan tanggal tersebut di atas telah dilaksanakan Retensi arsip rekam medis inaktif dengan rincian sebagai berikut:</p>
+            <p>PIHAK PERTAMA melakukan kegiatan pemilahan arsip rekam medis inaktif Periode tahun <strong>{{ $rentang_tahun }}</strong> yang diketahui oleh PIHAK KEDUA untuk disimpan di Gudang Arsip Inaktif dengan rincian jumlah berkas:</p>
             <p style="text-align: center; font-weight: bold; margin: 10px 0;">
-                SEBANYAK: {{ $total_berkas }} ({{ terbilang($total_berkas) }}) BERKAS
+                SEBANYAK: {{ $total_berkas }} ({{ terbilang($total_berkas) }}) Berkas
             </p>
             <p>Demikian berita acara ini dibuat untuk dipergunakan sebagaimana mestinya.</p>
         </div>

@@ -25,28 +25,65 @@ class PatientController extends Controller
 
     public function index(Request $request)
     {
-        $query = Patient::with('visits');
+        // 1. Query Dasar
+        $query = Patient::with('lastVisit')->latest();
+
+        // 2. Logika Pencarian Nama/RM
         if ($request->filled('search')) {
             $search = $request->search;
             $query->where(function($q) use ($search) {
                 $q->where('nama_pasien', 'like', "%{$search}%")
-                  ->orWhere('no_rm', 'like', "%{$search}%")
-                  ->orWhere('nik', 'like', "%{$search}%");
+                  ->orWhere('no_rm', 'like', "%{$search}%");
             });
         }
-        $patients = $query->latest()->get(); 
+
+        // 3. LOGIKA FILTER STATUS (FINAL & FIXED)
         if ($request->filled('status')) {
-            $statusFilter = $request->status;
-            $patients = $patients->filter(fn($p) => strtolower($p->current_status) === strtolower($statusFilter));
+            $status = $request->status;
+            $now = now();
+
+            if ($status === 'digudang') {
+                $query->where('manual_status', 'digudang');
+                
+            } elseif ($status === 'pemilahan') {
+                $query->where('manual_status', 'pemilahan');
+                
+            } elseif ($status === 'dimusnahkan') {
+                 $query->where('manual_status', 'dimusnahkan');
+
+            } else {
+                // === JURUS PAMUNGKAS: LOGIKA TERBALIK ===
+                // Ambil semua data, KECUALI yang sudah jelas-jelas statusnya 'digudang', 'pemilahan', atau 'dimusnahkan'.
+                // Dengan cara ini, mau isinya NULL, Kosong "", "Aktif", "Inaktif", atau "Spasi", SEMUA AKAN TERBACA.
+                
+                $query->where(function($q) {
+                    $q->whereNotIn('manual_status', ['digudang', 'pemilahan', 'siap_musnah', 'dimusnahkan'])
+                      ->orWhereNull('manual_status');
+                });
+
+                if ($status === 'Aktif') {
+                    $query->whereHas('lastVisit', function($q) use ($now) {
+                        $q->where('tgl_kunjungan', '>', $now->subYears(2));
+                    });
+                    
+                } elseif ($status === 'Inaktif') {
+                    $query->whereHas('lastVisit', function($q) use ($now) {
+                        $q->where('tgl_kunjungan', '<=', $now->subYears(2))
+                          ->where('tgl_kunjungan', '>', $now->subYears(5));
+                    });
+
+                } elseif ($status === 'Siap Musnah') {
+                    $query->whereHas('lastVisit', function($q) use ($now) {
+                        $q->where('tgl_kunjungan', '<=', $now->subYears(5));
+                    });
+                }
+            }
         }
-        $perPage = 10;
-        $currentPage = \Illuminate\Pagination\Paginator::resolveCurrentPage();
-        $patients = new \Illuminate\Pagination\LengthAwarePaginator(
-            $patients->slice(($currentPage - 1) * $perPage, $perPage)->all(),
-            count($patients), $perPage, $currentPage, ['path' => $request->url()]
-        );
+
+        $patients = $query->paginate(10);
+
         return view('patients.index', compact('patients'));
-    }
+    } 
 
     public function show($id)
     {
@@ -57,9 +94,6 @@ class PatientController extends Controller
 
     public function create() { return view('patients.create'); }
 
-    /**
-     * LOGIKA HYBRID: Simpan Pasien + Kunjungan (Jika dipilih)
-     */
     public function store(Request $request) 
     {
         // 1. Validasi Dasar Pasien
@@ -72,7 +106,7 @@ class PatientController extends Controller
             'alamat_lengkap'=> 'nullable|string'
         ];
 
-        // 2. Jika user mencentang 'catat_kunjungan', tambahkan validasi kunjungan
+        // 2. Validasi Kunjungan
         if ($request->has('catat_kunjungan')) {
             $rules['tgl_kunjungan'] = 'required|date';
             $rules['poli_tujuan']   = 'required|string';
@@ -104,11 +138,11 @@ class PatientController extends Controller
             }
 
             DB::commit();
-            return redirect()->route('patients.index')->with('success', 'Pasien' . ($request->has('catat_kunjungan') ? ' & Kunjungan Pertama' : '') . ' berhasil disimpan!');
+            return redirect()->route('patients.index')->with('success', 'Pasien berhasil disimpan!');
 
         } catch (\Exception $e) {
             DB::rollBack();
-            Log::error("Error Store Patient Hybrid: " . $e->getMessage());
+            Log::error("Error Store Patient: " . $e->getMessage());
             return back()->withErrors(['error' => 'Gagal menyimpan: ' . $e->getMessage()])->withInput();
         }
     }
@@ -125,7 +159,7 @@ class PatientController extends Controller
         ]);
         $patient->update($request->only(['no_rm', 'nik', 'nama_pasien', 'tgl_lahir', 'jenis_kelamin', 'alamat_lengkap']));
         
-        // Logika update kunjungan terakhir (Jika ada perubahan manual)
+        // Reset status manual jika ada update kunjungan
         if ($request->filled('tgl_kunjungan_terakhir')) {
             $patient->update(['manual_status' => null]); 
             $lastVisit = $patient->lastVisit;
