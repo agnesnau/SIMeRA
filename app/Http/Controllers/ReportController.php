@@ -6,7 +6,6 @@ use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use App\Models\Patient;
 use App\Models\GeneratedReport; 
-use Carbon\Carbon;
 use Barryvdh\DomPDF\Facade\Pdf; 
 
 class ReportController extends Controller
@@ -25,160 +24,190 @@ class ReportController extends Controller
     }
 
     /**
-     * 1. TAMPILKAN MENU PELAPORAN & RIWAYAT
+     * 1. HALAMAN MENU PELAPORAN
      */
-    public function index()
+    public function index(Request $request)
     {
-        // === [UPDATE LOGIKA HITUNGAN DASHBOARD] ===
-        
-        // 1. Total Inaktif (Kandidat Retensi) = HANYA yang statusnya 'pemilahan'
-        $totalInaktif = Patient::where('manual_status', 'pemilahan')->count();
+        // AMBIL DARI TABEL RIWAYAT
+        $query = GeneratedReport::query();
 
-        // 2. Siap Musnah = HANYA yang statusnya 'siap_musnah'
-        $siapMusnah   = Patient::where('manual_status', 'siap_musnah')->count();
+        // FITUR PENCARIAN
+        if ($request->filled('search')) {
+            $search = $request->search;
+            $query->where(function($q) use ($search) {
+                $q->where('no_surat', 'like', "%{$search}%")
+                  ->orWhere('jenis_ba', 'like', "%{$search}%");
+            });
+        }
 
-        // 3. Sudah Musnah
-        $sudahMusnah  = Patient::where('manual_status', 'dimusnahkan')->count();
-        
-        $lokasi       = "Puskesmas Silo 1";
-
-        // Ambil 20 riwayat laporan terakhir
-        $history = GeneratedReport::latest()->take(20)->get();
-
-        // Arahkan ke view laporan/index.blade.php
-        return view('laporan.index', compact('siapMusnah', 'sudahMusnah', 'totalInaktif', 'lokasi', 'history'));
+        $history = $query->latest()->paginate(10);
+        return view('laporan.index', compact('history'));
     }
 
     /**
-     * 2. PROSES CETAK BERITA ACARA (PDF) & SIMPAN KE RIWAYAT
+     * 2. PROSES CETAK (USULAN & BA FINAL) 
      */
     public function printBeritaAcara(Request $request)
     {
-        // Ambil Input
-        $jenis_ba = $request->input('jenis_ba', 'retensi');
-        $no_surat = $request->input('no_surat');
-        $tanggal  = $request->input('tanggal', date('Y-m-d'));
+        $jenis_ba      = $request->input('jenis_ba', 'retensi');
+        $tipe_dokumen  = $request->input('tipe_dokumen', 'berita_acara'); 
+        $no_surat      = $request->input('no_surat');
+        $tanggal       = $request->input('tanggal', date('Y-m-d'));
         $rentang_tahun = $request->input('rentang_tahun', '-');
-        $sk_kapus = $request->input('sk_kapus', '-'); 
-        $metode   = $request->input('metode', '-');
+        $sk_kapus      = $request->input('sk_kapus', '-'); 
+        $metode        = $request->input('metode', '-');
 
-        // Mapping Variable Kosong
         $nama_p1 = ""; $nip_p1 = ""; $jabatan_p1 = "";
         $nama_p2 = ""; $nip_p2 = ""; $jabatan_p2 = "";
         $nama_kapus = ""; $nip_kapus = "";
+        
         $data_berkas = collect([]);
 
-        // === [LOGIKA PENGAMBILAN DATA CETAK] ===
-        if ($jenis_ba == 'retensi') {
-            // BA RETENSI -> Ambil dari 'pemilahan'
-            $nama_p1    = $request->input('nama_p1'); 
-            $nip_p1     = $request->input('nip_p1');
-            $nama_p2    = $request->input('nama_p2'); 
-            $nip_p2     = $request->input('nip_p2');
-            $nama_kapus = $request->input('nama_tu'); 
-            $nip_kapus  = $request->input('nip_tu');
+        // ====================================================================
+        // LOGIKA PENGAMBILAN DATA (USULAN vs FINAL) - DIPERBAIKI TOTAL
+        // ====================================================================
+        if ($tipe_dokumen == 'pertelaan') { 
+            // -------------------------------------------------------------
+            // CETAK USULAN: Ambil semua yang BUKAN 1 (Menunggu ACC)
+            // -------------------------------------------------------------
+            if ($jenis_ba == 'retensi') {
+                $data_berkas = Patient::where('manual_status', 'pemilahan')
+                                      ->where(function($query) {
+                                          $query->where('status_approval', '!=', 1)
+                                                ->orWhereNull('status_approval');
+                                      })->with('lastVisit')->get();
+            } else {
+                $data_berkas = Patient::where('manual_status', 'siap_musnah')
+                                      ->where(function($query) {
+                                          $query->where('status_approval', '!=', 1)
+                                                ->orWhereNull('status_approval');
+                                      })->with('lastVisit')->get();
+            }
+
+            if ($data_berkas->isEmpty()) {
+                return back()->with('error', 'Gagal! Tidak ada daftar usulan yang menunggu persetujuan (ACC) saat ini.');
+            }
             
-            $jabatan_p1 = "Kasubag Tata Usaha";
-            $jabatan_p2 = "Penanggung Jawab Rekam Medis";
-
-            // Query: HANYA yang statusnya 'pemilahan'
-            $data_berkas = Patient::where('manual_status', 'pemilahan')
-                                  ->with('lastVisit')
-                                  ->get();
         } else {
-            // BA PEMUSNAHAN
-            $nama_p1    = $request->input('nama_ketua'); 
-            $nip_p1     = "-"; 
-            $nama_p2    = ""; 
-            $nip_p2     = "";
-            $nama_kapus = $request->input('nama_kapus');
-            $nip_kapus  = ""; 
+            // -------------------------------------------------------------
+            // CETAK BA FINAL: Ambil yang SUDAH dieksekusi (Gudang/Musnah) dan statusnya 1
+            // -------------------------------------------------------------
+            if ($jenis_ba == 'retensi') {
+                $data_berkas = Patient::where('manual_status', 'digudang')
+                                      ->where('status_approval', 1)
+                                      ->with('lastVisit')->get();
+            } else {
+                $data_berkas = Patient::where('manual_status', 'dimusnahkan')
+                                      ->where('status_approval', 1)
+                                      ->with('lastVisit')->get();
+            }
 
-            $jabatan_p1 = "Ketua Tim Pemusnah";
-            $jabatan_p2 = "";
-
-            // --- [PERBAIKAN DISINI] ---
-            // Hanya ambil yang 'siap_musnah'. 
-            // Data yang 'dimusnahkan' DIKECUALIKAN agar tidak muncul lagi.
-            $data_berkas = Patient::where('manual_status', 'siap_musnah')
-                                  ->with('lastVisit')
-                                  ->get();
+            if ($data_berkas->isEmpty()) {
+                return back()->with('error', 'Gagal Cetak! Data kosong. Pastikan petugas sudah menyelesaikan eksekusi pemindahan ke gudang atau pemusnahan fisik.');
+            }
         }
-
+        
         $total_berkas = $request->input('total_berkas') ?? $data_berkas->count();
 
-        // Simpan/Update Report
+        // ====================================================================
+        // MAPPING TANDA TANGAN
+        // ====================================================================
+        if ($jenis_ba == 'retensi') {
+            $nama_p1 = $request->input('nama_p1'); $nip_p1 = $request->input('nip_p1', '-');
+            $nama_p2 = $request->input('nama_p2'); $nip_p2 = $request->input('nip_p2', '-');
+            $nama_kapus = $request->input('nama_tu'); $nip_kapus = $request->input('nip_tu', '-');
+            $jabatan_p1 = "Penanggung Jawab Rekam Medis"; $jabatan_p2 = "Kasubag Tata Usaha";
+        } else {
+            $nama_p1 = $request->input('nama_ketua'); $nip_p1 = $request->input('nip_ketua', '-'); 
+            $nama_p2 = ""; $nip_p2 = "";
+            $nama_kapus = $request->input('nama_kapus'); $nip_kapus = $request->input('nip_kapus', '-'); 
+            $jabatan_p1 = "Ketua Tim Pemusnah"; $jabatan_p2 = "";
+        }
+
+        // ====================================================================
+        // SIMPAN KE RIWAYAT BESERTA ID PASIEN
+        // ====================================================================
+        $payloadData = $request->all();
+        $payloadData['patient_ids'] = $data_berkas->pluck('id')->toArray();
+        $payloadData['tipe_dokumen'] = $tipe_dokumen; 
+
         GeneratedReport::updateOrCreate(
             ['no_surat' => $no_surat],
             [
                 'jenis_ba' => $jenis_ba,
                 'tanggal_ba' => $tanggal,
                 'total_berkas' => $total_berkas,
+                // 'tipe_dokumen' => $tipe_dokumen, // DIMATIKAN AGAR TIDAK ERROR SQL!
                 'dibuat_oleh' => auth()->user()->nama_lengkap ?? 'Admin',
-                'payload_data' => $request->all()
+                'payload_data' => $payloadData
             ]
         );
 
-        // Fix Nama File
+        // ====================================================================
+        // KUNCI PERMANEN JIKA CETAK FINAL
+        // ====================================================================
+        if ($tipe_dokumen == 'berita_acara') {
+            Patient::whereIn('id', $payloadData['patient_ids'])->update(['status_approval' => 2]);
+        }
+
         $safe_filename = str_replace(['/', '\\'], '_', $no_surat);
 
-        // Generate PDF
+        // RENDER PDF
         return Pdf::loadView('laporan.cetak', compact(
             'jenis_ba', 'no_surat', 'tanggal', 'rentang_tahun',
             'nama_p1', 'nip_p1', 'jabatan_p1',
             'nama_p2', 'nip_p2', 'jabatan_p2',
             'nama_kapus', 'nip_kapus',
-            'data_berkas', 'total_berkas', 'sk_kapus', 'metode'
-        ))->setPaper('A4', 'portrait')->stream("Berita_Acara_{$safe_filename}.pdf");
+            'data_berkas', 'total_berkas', 'sk_kapus', 'metode', 'tipe_dokumen'
+        ))->setPaper('A4', 'portrait')->stream("{$tipe_dokumen}_{$safe_filename}.pdf");
     }
 
     /**
-     * 3. FUNGSI REPRINT
+     * 3. FUNGSI REPRINT (CETAK ULANG DARI MENU RIWAYAT)
      */
     public function reprint($id)
     {
         $report = GeneratedReport::findOrFail($id);
-        $data = $report->payload_data; 
+        $payload = $report->payload_data; 
         
-        // Re-Fetch Data Berkas sesuai Logika Baru
-        if ($report->jenis_ba == 'retensi') {
-            // Reprint Retensi -> Cari yang 'pemilahan'
-            $data['data_berkas'] = Patient::where('manual_status', 'pemilahan')
-                                          ->with('lastVisit')
-                                          ->get();
+        $jenis_ba = $report->jenis_ba;
+        $no_surat = $report->no_surat;
+        $tanggal  = $report->tanggal_ba;
+        $total_berkas = $report->total_berkas;
+
+        $rentang_tahun = $payload['rentang_tahun'] ?? '-';
+        $sk_kapus = $payload['sk_kapus'] ?? '-';
+        $metode   = $payload['metode'] ?? '-';
+        $tipe_dokumen = $payload['tipe_dokumen'] ?? 'berita_acara';
+
+        $data_berkas = collect([]);
+        if (isset($payload['patient_ids']) && !empty($payload['patient_ids'])) {
+            $data_berkas = Patient::whereIn('id', $payload['patient_ids'])->with('lastVisit')->get();
+        }
+
+        $nama_p1 = ""; $nip_p1 = ""; $jabatan_p1 = "";
+        $nama_p2 = ""; $nip_p2 = ""; $jabatan_p2 = "";
+        $nama_kapus = ""; $nip_kapus = "";
+
+        if ($jenis_ba == 'retensi') {
+            $nama_p1 = $payload['nama_p1'] ?? ''; $nip_p1 = $payload['nip_p1'] ?? '-';
+            $nama_p2 = $payload['nama_p2'] ?? ''; $nip_p2 = $payload['nip_p2'] ?? '-';
+            $nama_kapus = $payload['nama_tu'] ?? ''; $nip_kapus = $payload['nip_tu'] ?? '-';
+            $jabatan_p1 = "Penanggung Jawab Rekam Medis"; $jabatan_p2 = "Kasubag Tata Usaha";
         } else {
-            // Reprint Musnah 
-            // NOTE: Jika Anda ingin reprint data lama yang sudah dimusnahkan tetap muncul,
-            // gunakan whereIn. Tapi untuk konsistensi 'data saat ini', gunakan where siap_musnah.
-            // Di sini saya biarkan whereIn agar HISTORY tetap bisa dicetak, 
-            // tapi saat Generate Baru (fungsi di atas) hanya ambil siap_musnah.
-            $data['data_berkas'] = Patient::whereIn('manual_status', ['siap_musnah', 'dimusnahkan'])
-                                          ->with('lastVisit')
-                                          ->get();
+            $nama_p1 = $payload['nama_ketua'] ?? ''; $nip_p1 = $payload['nip_ketua'] ?? '-'; 
+            $nama_kapus = $payload['nama_kapus'] ?? ''; $nip_kapus = $payload['nip_kapus'] ?? '-'; 
+            $jabatan_p1 = "Ketua Tim Pemusnah";
         }
 
-        $data['total_berkas'] = $report->total_berkas;
+        $safe_filename = str_replace(['/', '\\'], '_', $no_surat);
 
-        $safe_filename = str_replace(['/', '\\'], '_', $report->no_surat);
-
-        return Pdf::loadView('laporan.cetak', $data)
-            ->setPaper('A4', 'portrait')
-            ->stream("REPRINT_{$safe_filename}.pdf");
-    }
-
-    /**
-     * 4. BULK RETENSI (Kode Lama)
-     */
-    public function bulkRetensi(Request $request)
-    {
-        $ids = explode(',', $request->ids);
-        if (empty($ids) || $request->ids == "") {
-            return back()->with('error', 'Pilih data pasien terlebih dahulu.');
-        }
-
-        // Ubah status ke 'pemilahan' agar masuk hitungan 'Inaktif' di Laporan
-        Patient::whereIn('id', $ids)->update(['manual_status' => 'pemilahan']);
-        
-        return back()->with('success', count($ids) . ' berkas dipindahkan ke Pemilahan.');
+        return Pdf::loadView('laporan.cetak', compact(
+            'jenis_ba', 'no_surat', 'tanggal', 'rentang_tahun',
+            'nama_p1', 'nip_p1', 'jabatan_p1',
+            'nama_p2', 'nip_p2', 'jabatan_p2',
+            'nama_kapus', 'nip_kapus',
+            'data_berkas', 'total_berkas', 'sk_kapus', 'metode', 'tipe_dokumen'
+        ))->setPaper('A4', 'portrait')->stream("REPRINT_{$safe_filename}.pdf");
     }
 }

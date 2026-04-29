@@ -16,10 +16,8 @@ class VisitController extends Controller
      */
     public function index(Request $request)
     {
-        // Gunakan Eager Loading untuk efisiensi query
         $query = Visit::with('patient');
 
-        // Perbaikan Sintaks Pencarian (Gunakan penggabungan string yang benar)
         if ($request->filled('search')) {
             $search = $request->search;
             $query->whereHas('patient', function($q) use ($search) {
@@ -28,7 +26,6 @@ class VisitController extends Controller
             });
         }
 
-        // Filter Waktu Kunjungan
         if ($request->filled('filter_time')) {
             $now = Carbon::now();
             switch ($request->filter_time) {
@@ -73,32 +70,47 @@ class VisitController extends Controller
      */
     public function store(Request $request)
     {
+        // 1. Validasi disesuaikan dengan Form HTML (Tanpa Dokter/Diagnosa, Ada Pembayaran)
         $request->validate([
             'patient_id'    => 'required|exists:patients,id',
             'tgl_kunjungan' => 'required|date',
             'poli_tujuan'   => 'required|string',
-            'dokter'        => 'required|string',
-            'diagnosa'      => 'required|string',
+            'pembayaran'    => 'required|string',
         ]);
 
-        // Generate No Registrasi Unik
         $no_reg = 'REG-' . date('Ymd') . '-' . rand(100, 999);
 
+        // 2. Simpan Kunjungan Baru
         Visit::create([
             'no_registrasi' => $no_reg,
             'patient_id'    => $request->patient_id,
             'tgl_kunjungan' => $request->tgl_kunjungan,
             'poli_tujuan'   => $request->poli_tujuan,
-            'dokter'        => $request->dokter,
-            'diagnosa'      => $request->diagnosa,
+            'pembayaran'    => $request->pembayaran,
             'user_id'       => Auth::id(),
         ]);
+
+        // ---------------------------------------------------------
+        // 3. LOGIKA RE-AKTIVASI (Meriset status gudang menjadi Aktif)
+        // ---------------------------------------------------------
+        $patient = Patient::find($request->patient_id);
+        
+        $status_sebelumnya = $patient->manual_status;
+
+        $patient->update([
+            'manual_status'   => '',
+            'status_approval' => 0
+        ]);
+
+        if (in_array($status_sebelumnya, ['digudang', 'pemilahan', 'siap_musnah'])) {
+            return redirect()->route('visits.index')->with('success', 'Kunjungan dicatat. Berkas Rekam Medis pasien ini ditarik dari Gudang dan berstatus AKTIF kembali.');
+        }
 
         return redirect()->route('visits.index')->with('success', 'Kunjungan berhasil dicatat!');
     }
 
     /**
-     * Menampilkan Detail Kunjungan (Lembar Medis Klinis Selayar Penuh)
+     * Menampilkan Detail Kunjungan
      */
     public function show($id)
     {
@@ -123,18 +135,17 @@ class VisitController extends Controller
     {
         $visit = Visit::findOrFail($id);
         
+        // Sesuaikan validasi update dengan store (Tanpa dokter/diagnosa)
         $request->validate([
             'tgl_kunjungan' => 'required|date',
             'poli_tujuan'   => 'required|string',
-            'dokter'        => 'required|string',
-            'diagnosa'      => 'required|string',
+            'pembayaran'    => 'required|string',
         ]);
 
         $visit->update([
             'tgl_kunjungan' => $request->tgl_kunjungan,
             'poli_tujuan'   => $request->poli_tujuan,
-            'dokter'        => $request->dokter,
-            'diagnosa'      => $request->diagnosa,
+            'pembayaran'    => $request->pembayaran,
         ]);
 
         return redirect()->route('visits.index')->with('success', 'Riwayat kunjungan diperbarui!');

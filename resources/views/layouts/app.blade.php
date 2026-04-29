@@ -86,7 +86,7 @@
             </div>
             <div class="flex flex-col">
                 <span class="text-xl font-extrabold tracking-tighter uppercase leading-none">SIMeRA</span>
-                <span class="text-[9px] font-bold text-emerald-400/60 uppercase tracking-[0.2em] mt-1">Management System</span>
+                <span class="text-[9px] font-bold text-emerald-400/60 uppercase tracking-[0.2em] mt-1">Sistem Manajemen Retensi Arsip</span>
             </div>
         </div>
 
@@ -154,7 +154,7 @@
 
                     <a href="{{ route('pemusnahan.eksekusi') }}" class="sub-nav-link {{ request()->routeIs('pemusnahan.eksekusi') ? 'text-white bg-white/5 font-bold' : '' }}">
                         <span class="w-1.5 h-1.5 rounded-full {{ request()->routeIs('pemusnahan.eksekusi') ? 'bg-red-600 animate-pulse shadow-[0_0_8px_rgba(220,38,38,1)]' : 'bg-white/20' }}"></span>
-                        Eksekusi
+                        Eksekusi Berkas
                     </a>
                 </div>
             </li>
@@ -163,7 +163,7 @@
             <li class="nav-item">
                 <a href="{{ route('laporan.index') }}" class="nav-link {{ request()->is('laporan*') ? 'active' : '' }}">
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
-                    Pelaporan & BA
+                    Berita Acara
                 </a>
             </li>
             @endif
@@ -203,9 +203,12 @@
                     <p class="text-xs font-black text-slate-900 uppercase leading-none">{{ auth()->user()->nama_lengkap ?? 'Administrator' }}</p>
                     <p class="text-[9px] text-emerald-600 font-bold uppercase tracking-widest mt-1">{{ auth()->user()->level ?? 'Level Akses' }}</p>
                 </div>
-                <div class="w-10 h-10 rounded-2xl bg-emerald-100 text-emerald-700 flex items-center justify-center font-black text-sm border-2 border-white shadow-md">
-                    {{ substr(auth()->user()->nama_lengkap ?? 'A', 0, 1) }}
-                </div>
+                <div class="w-10 h-10 rounded-2xl bg-emerald-100 text-emerald-700 flex items-center justify-center font-black text-sm border-2 border-white shadow-md overflow-hidden">
+                @if(auth()->user() && auth()->user()->foto)
+                    <img src="{{ asset('storage/' . auth()->user()->foto) }}" class="w-full h-full object-cover">
+                @else
+                  {{ substr(auth()->user()->nama_lengkap ?? 'A', 0, 1) }}
+                     @endif
             </div>
         </nav>
 

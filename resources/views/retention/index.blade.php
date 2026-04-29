@@ -128,25 +128,34 @@
         </form>
     </div>
 
+    {{-- ======================================================== --}}
+    {{-- PERBAIKAN BULK ACTION: HANYA ADA TOMBOL PINDAH GUDANG --}}
+    {{-- ======================================================== --}}
     @if(auth()->user()->level !== 'supervisor')
     <div id="bulk-action-area" class="hidden">
         <form action="{{ route('retensi.bulkAction') }}" method="POST" id="form-massal" class="bg-gray-800 p-4 rounded-xl flex flex-wrap gap-4 items-center shadow-lg text-white border border-gray-700">
             @csrf
             <input type="hidden" name="ids" id="input-ids-terpilih">
+            
+            {{-- MEMAKSA ACTION TYPE JADI PINDAH (PEMILAHAN) --}}
+            <input type="hidden" name="action_type" value="pindah">
+            
             <div class="text-sm font-bold flex items-center gap-2">
                 <span class="bg-gray-700 px-3 py-1 rounded-full text-xs text-white border border-gray-600" id="jumlah-terpilih">0</span> 
                 <span>Data Terpilih</span>
             </div>
             <div class="h-6 w-px bg-gray-600 mx-2"></div>
-            <select name="action_type" class="p-2 rounded-lg text-sm bg-gray-700 text-white border border-gray-600 outline-none font-medium" required>
-                <option value="">-- Pilih Tindakan --</option>
-                <option value="pindah">📦 Pindah ke Gudang (Pemilahan)</option>
-                <option value="hapus">🗑️ Hapus Data Permanen</option>
-            </select>
-            <button type="submit" onclick="return confirm('Proses data terpilih?')" class="bg-white text-gray-900 px-6 py-2 rounded-lg font-black text-sm hover:bg-emerald-50 transition ml-auto active:scale-95">PROSES</button>
+            
+            <p class="text-sm text-gray-300 italic flex-1">Berkas terpilih akan dimasukkan ke antrean Gudang Inaktif.</p>
+
+            <button type="submit" onclick="return confirm('Pindahkan data terpilih ke Gudang Inaktif (Tahap Pemilahan)?')" class="bg-emerald-500 text-white px-6 py-2 rounded-lg font-black text-sm hover:bg-emerald-600 transition ml-auto active:scale-95 flex items-center gap-2">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"></path></svg>
+                USULKAN PINDAH GUDANG
+            </button>
         </form>
     </div>
     @endif
+    {{-- ======================================================== --}}
 
     <div class="bg-white rounded-3xl shadow-sm border border-slate-100 overflow-hidden">
         <div class="overflow-x-auto">
@@ -170,7 +179,6 @@
                             $years = $p->calculated_years ?? ($p->lastVisit ? $p->lastVisit->tgl_kunjungan->diffInYears(now()) : 0);
                         @endphp
                         
-                        {{-- UPDATE: FILTER HANYA TAMPILKAN 2-4 TAHUN (INAKTIF SAJA) --}}
                         @if($years >= 2 && $years < 4 && !$p->manual_status)
                         <tr class="hover:bg-blue-50/30 transition-colors group">
                             @if(auth()->user()->level !== 'supervisor')
@@ -196,7 +204,7 @@
                                         <svg class="w-4 h-4 text-emerald-400 group-hover/btn:text-white transition-colors" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
                                             <path d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"></path>
                                         </svg>
-                                        Pindah ke Gudang
+                                        Usul Pindah ke Gudang
                                     </button>
                                 </form>
                             </td>

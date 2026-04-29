@@ -17,7 +17,8 @@ class Patient extends Model
         'tgl_lahir', 
         'jenis_kelamin', 
         'alamat_lengkap', 
-        'manual_status' // Penting untuk status: digudang, pemilahan, siap_musnah, dimusnahkan
+        'manual_status', 
+        'status_approval'
     ];
 
     protected $appends = ['current_status'];

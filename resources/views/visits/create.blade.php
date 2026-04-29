@@ -2,7 +2,6 @@
 @section('title', 'Catat Kunjungan Baru')
 
 @section('content')
-<!-- Menambahkan CSS Select2 untuk fitur pencarian yang bisa diketik -->
 <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
 <style>
     .select2-container--default .select2-selection--single {
@@ -29,7 +28,6 @@
     <form action="{{ route('visits.store') }}" method="POST">
         @csrf
         
-        <!-- Pilih Pasien (Searchable) -->
         <div class="mb-5">
             <label class="block mb-2 text-sm font-medium text-gray-700">Pilih Pasien (Ketik No. RM / Nama)</label>
             <select name="patient_id" id="patient_select" required class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-emerald-500 focus:border-emerald-500 bg-white">
@@ -42,14 +40,12 @@
         </div>
 
         <div class="grid grid-cols-1 md:grid-cols-2 gap-5 mb-5">
-            <!-- Tanggal -->
             <div>
                 <label class="block mb-2 text-sm font-medium text-gray-700">Tanggal Kunjungan</label>
                 <input type="date" name="tgl_kunjungan" value="{{ date('Y-m-d') }}" required 
                     class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-emerald-500 focus:border-emerald-500">
             </div>
             
-            <!-- Poli -->
             <div>
                 <label class="block mb-2 text-sm font-medium text-gray-700">Poli Tujuan</label>
                 <select name="poli_tujuan" required class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-emerald-500 focus:border-emerald-500 bg-white">
@@ -60,24 +56,15 @@
             </div>
         </div>
 
-        <!-- Dokter (Dropdown dengan 4 Pilihan) -->
-        <div class="mb-5">
-            <label class="block mb-2 text-sm font-medium text-gray-700">Dokter Penanggung Jawab</label>
-            <select name="dokter" required class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-emerald-500 focus:border-emerald-500 bg-white">
-                <option value="" disabled selected>-- Pilih Dokter --</option>
-                <option value="dr Adi Wijaya SE">dr Adi Wijaya SE</option>
-                <option value="Bidan Fitri Amd.keb">Bidan Fitri Amd.keb</option>
-                <option value="drg. Luk Luk Nurhayati">drg. Luk Luk Nurhayati</option>
+        <div class="mb-6">
+            <label class="block mb-2 text-sm font-medium text-gray-700">Metode Pembayaran</label>
+            <select name="pembayaran" required class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-emerald-500 focus:border-emerald-500 bg-white">
+                <option value="" disabled selected>-- Pilih Metode Pembayaran --</option>
+                <option value="BPJS">BPJS KESEHATAN</option>
+                <option value="UMUM">UMUM (BAYAR SENDIRI)</option>
             </select>
         </div>
 
-        <!-- Diagnosa -->
-        <div class="mb-6">
-            <label class="block mb-2 text-sm font-medium text-gray-700">Diagnosa Utama</label>
-            <textarea name="diagnosa" rows="3" required class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-emerald-500 focus:border-emerald-500" placeholder="Contoh: Febris, Dyspepsia..."></textarea>
-        </div>
-
-        <!-- Tombol -->
         <div class="flex justify-end gap-3 pt-4 border-t border-gray-100">
             <button type="reset" class="px-5 py-2.5 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors font-medium">Reset</button>
             <button type="submit" class="px-5 py-2.5 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors font-medium shadow-lg">Simpan Kunjungan</button>
@@ -85,7 +72,6 @@
     </form>
 </div>
 
-<!-- Scripts untuk inisialisasi Select2 -->
 <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
 <script>

@@ -37,11 +37,12 @@ class PatientController extends Controller
             });
         }
 
-        // 3. LOGIKA FILTER STATUS (FINAL & FIXED)
+        // 3. LOGIKA FILTER STATUS (YANG SUDAH DIPERBAIKI)
         if ($request->filled('status')) {
             $status = $request->status;
             $now = now();
 
+            // A. Filter Status Manual (Gudang/Pemilahan/Musnah)
             if ($status === 'digudang') {
                 $query->where('manual_status', 'digudang');
                 
@@ -52,27 +53,32 @@ class PatientController extends Controller
                  $query->where('manual_status', 'dimusnahkan');
 
             } else {
-                // === JURUS PAMUNGKAS: LOGIKA TERBALIK ===
-                // Ambil semua data, KECUALI yang sudah jelas-jelas statusnya 'digudang', 'pemilahan', atau 'dimusnahkan'.
-                // Dengan cara ini, mau isinya NULL, Kosong "", "Aktif", "Inaktif", atau "Spasi", SEMUA AKAN TERBACA.
+                // B. Filter Status Otomatis (Aktif/Inaktif/Siap Musnah)
+                // PERBAIKAN PENTING DI SINI:
+                // Kita gunakan logic "WHERE NOT IN" agar data yang manual_status-nya NULL, String Kosong, atau Spasi tetap terbaca.
                 
                 $query->where(function($q) {
                     $q->whereNotIn('manual_status', ['digudang', 'pemilahan', 'siap_musnah', 'dimusnahkan'])
                       ->orWhereNull('manual_status');
                 });
 
+                // Filter Berdasarkan Tanggal
                 if ($status === 'Aktif') {
+                    // Kunjungan < 2 Tahun
                     $query->whereHas('lastVisit', function($q) use ($now) {
                         $q->where('tgl_kunjungan', '>', $now->subYears(2));
                     });
                     
                 } elseif ($status === 'Inaktif') {
+                    // Kunjungan Antara 2 - 5 Tahun
+                    // Misri (2022) akan masuk di sini karena > 2021 dan <= 2024 (Jika sekarang 2026)
                     $query->whereHas('lastVisit', function($q) use ($now) {
-                        $q->where('tgl_kunjungan', '<=', $now->subYears(2))
-                          ->where('tgl_kunjungan', '>', $now->subYears(5));
+                        $q->where('tgl_kunjungan', '<=', $now->copy()->subYears(2))
+                          ->where('tgl_kunjungan', '>', $now->copy()->subYears(5));
                     });
 
                 } elseif ($status === 'Siap Musnah') {
+                    // Kunjungan > 5 Tahun
                     $query->whereHas('lastVisit', function($q) use ($now) {
                         $q->where('tgl_kunjungan', '<=', $now->subYears(5));
                     });
@@ -96,7 +102,6 @@ class PatientController extends Controller
 
     public function store(Request $request) 
     {
-        // 1. Validasi Dasar Pasien
         $rules = [
             'no_rm'         => 'required|unique:patients,no_rm', 
             'nama_pasien'   => 'required|string|max:100', 
@@ -106,12 +111,10 @@ class PatientController extends Controller
             'alamat_lengkap'=> 'nullable|string'
         ];
 
-        // 2. Validasi Kunjungan
         if ($request->has('catat_kunjungan')) {
             $rules['tgl_kunjungan'] = 'required|date';
             $rules['poli_tujuan']   = 'required|string';
-            $rules['nama_dokter']   = 'required|string';
-            $rules['diagnosa']      = 'required|string';
+            $rules['pembayaran']    = 'required|in:BPJS,UMUM';
         }
 
         $request->validate($rules);
@@ -119,20 +122,17 @@ class PatientController extends Controller
         try {
             DB::beginTransaction();
 
-            // 3. Simpan Data Pasien
             $patient = Patient::create($request->only([
                 'no_rm', 'nama_pasien', 'nik', 'tgl_lahir', 'jenis_kelamin', 'alamat_lengkap'
             ]));
 
-            // 4. Simpan Data Kunjungan (Jika ada)
             if ($request->has('catat_kunjungan')) {
                 Visit::create([
                     'no_registrasi' => 'REG-' . date('Ymd') . '-' . rand(100, 999),
                     'patient_id'    => $patient->id,
                     'tgl_kunjungan' => $request->tgl_kunjungan,
                     'poli_tujuan'   => $request->poli_tujuan,
-                    'dokter'        => $request->nama_dokter,
-                    'diagnosa'      => $request->diagnosa,
+                    'pembayaran'    => $request->pembayaran,
                     'user_id'       => auth()->id(),
                 ]);
             }
@@ -166,8 +166,7 @@ class PatientController extends Controller
             $dataVisit = [
                 'tgl_kunjungan' => $request->tgl_kunjungan_terakhir,
                 'poli_tujuan'   => $request->poli_tujuan ?? 'Umum',
-                'dokter'        => $request->nama_dokter ?? 'Admin Update',
-                'diagnosa'      => $request->diagnosa_terakhir ?? 'Update Manual',
+                'pembayaran'    => $request->pembayaran ?? 'UMUM',
             ];
 
             if ($lastVisit) {

@@ -1,13 +1,13 @@
 @extends('layouts.app')
-@section('title', 'Mutasi Data Pasien')
+@section('title', 'Edit Data Pasien')
 
 @section('content')
-<div class="max-w-4xl mx-auto bg-white p-10 rounded-3xl shadow-sm border border-gray-100">
+<div class="max-w-5xl mx-auto bg-white p-8 md:p-10 rounded-3xl shadow-sm border border-gray-100">
     
-    <div class="mb-8 pb-6 border-b border-gray-100 flex justify-between items-center">
+    <div class="mb-8 pb-6 border-b border-gray-100 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
             <h2 class="text-2xl font-black text-gray-800 uppercase tracking-tight">Perbarui Informasi Pasien</h2>
-            <p class="text-sm text-gray-400 font-medium">Melakukan pemutakhiran biodata atau tanggal kunjungan manual.</p>
+            <p class="text-sm text-gray-400 font-medium">Melakukan pemutakhiran biodata dasar pasien.</p>
         </div>
         <a href="{{ route('patients.index') }}" class="px-5 py-2.5 bg-gray-50 text-gray-500 rounded-xl text-xs font-bold hover:bg-gray-100 transition border border-gray-200 uppercase tracking-widest flex items-center gap-2">
             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path></svg>
@@ -16,7 +16,7 @@
     </div>
 
     @if ($errors->any())
-        <div class="mb-8 bg-red-50 text-red-600 p-5 rounded-2xl text-xs border-l-4 border-red-500 font-bold uppercase tracking-widest">
+        <div class="mb-8 bg-red-50 text-red-600 p-5 rounded-2xl text-xs border-l-4 border-red-500 font-bold uppercase tracking-widest animate-pulse">
             @foreach ($errors->all() as $error) <span>● {{ $error }}</span><br> @endforeach
         </div>
     @endif
@@ -26,18 +26,20 @@
         @method('PUT')
         
         <div class="grid grid-cols-1 md:grid-cols-2 gap-10">
+            
             <div class="space-y-6">
+                
                 <div>
                     <label class="block mb-2 text-[10px] font-black text-gray-400 uppercase tracking-widest">Nomor Rekam Medis / Index</label>
                     <input type="text" name="no_rm" value="{{ old('no_rm', $patient->no_rm) }}" required 
-                        class="w-full px-5 py-3.5 bg-slate-100 border border-slate-200 rounded-2xl font-mono font-black text-lg tracking-tighter text-slate-500" readonly>
+                        class="w-full px-5 py-3.5 bg-slate-100 border border-slate-200 rounded-2xl font-mono font-black text-lg tracking-tighter text-slate-500 cursor-not-allowed" readonly>
                     <p class="text-[9px] text-red-400 mt-2 font-bold italic uppercase tracking-tighter">* NOMOR INDEX BERSIFAT PERMANEN & TIDAK DAPAT DIUBAH.</p>
                 </div>
 
                 <div>
                     <label class="block mb-2 text-[10px] font-black text-gray-400 uppercase tracking-widest">NIK Pasien</label>
                     <input type="text" name="nik" value="{{ old('nik', $patient->nik) }}" 
-                        class="w-full px-5 py-3.5 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-2 focus:ring-emerald-500 outline-none font-bold">
+                        class="w-full px-5 py-3.5 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-2 focus:ring-emerald-500 outline-none font-bold text-slate-700">
                 </div>
 
                 <div>
@@ -46,44 +48,37 @@
                         class="w-full px-5 py-3.5 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-2 focus:ring-emerald-500 outline-none font-black text-slate-800 uppercase">
                 </div>
 
-                <!-- FIELD KRITIS: UPDATE KUNJUNGAN -->
-                <div class="bg-blue-50 p-6 rounded-3xl border border-blue-100 shadow-inner">
-                    <label class="block mb-3 text-[10px] font-black text-blue-700 uppercase tracking-widest">Update Kunjungan Terakhir</label>
-                    <input type="date" name="tgl_kunjungan_terakhir" 
-                        value="{{ old('tgl_kunjungan_terakhir', optional($patient->lastVisit)->tgl_kunjungan ? $patient->lastVisit->tgl_kunjungan->format('Y-m-d') : '') }}" 
-                        class="w-full px-5 py-3 bg-white border border-blue-200 rounded-2xl focus:ring-2 focus:ring-blue-500 outline-none text-blue-900 font-black">
-                    <p class="text-[9px] text-blue-500 mt-3 font-medium leading-relaxed italic">
-                        "Pembaruan tanggal ini akan otomatis me-reset status retensi menjadi <strong>AKTIF</strong> kembali."
-                    </p>
-                </div>
             </div>
 
             <div class="space-y-6">
-                <div class="grid grid-cols-2 gap-4">
-                    <div>
-                        <label class="block mb-2 text-[10px] font-black text-gray-400 uppercase tracking-widest">Tempat Lahir</label>
-                        <input type="text" name="tempat_lahir" value="{{ old('tempat_lahir', $patient->tempat_lahir) }}" 
-                            class="w-full px-5 py-3.5 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-2 focus:ring-emerald-500 outline-none font-bold">
-                    </div>
-                    <div>
-                        <label class="block mb-2 text-[10px] font-black text-gray-400 uppercase tracking-widest">Tanggal Lahir</label>
-                        <input type="date" name="tgl_lahir" value="{{ old('tgl_lahir', $patient->tgl_lahir) }}" required 
-                            class="w-full px-5 py-3.5 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-2 focus:ring-emerald-500 outline-none font-bold">
-                    </div>
+                
+                <div>
+                    <label class="block mb-2 text-[10px] font-black text-gray-400 uppercase tracking-widest">Tanggal Lahir</label>
+                    
+                    {{-- FIX DATE FORMAT: Mengubah format database ke Y-m-d agar terbaca input date --}}
+                    <input type="date" name="tgl_lahir" 
+                        value="{{ old('tgl_lahir', \Carbon\Carbon::parse($patient->tgl_lahir)->format('Y-m-d')) }}" 
+                        required 
+                        class="w-full px-5 py-3.5 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-2 focus:ring-emerald-500 outline-none font-bold text-slate-700">
                 </div>
 
                 <div>
                     <label class="block mb-2 text-[10px] font-black text-gray-400 uppercase tracking-widest">Jenis Kelamin</label>
-                    <select name="jenis_kelamin" required class="w-full px-5 py-3.5 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-2 focus:ring-emerald-500 outline-none font-bold bg-white cursor-pointer uppercase">
-                        <option value="L" {{ old('jenis_kelamin', $patient->jenis_kelamin) == 'L' ? 'selected' : '' }}>LAKI-LAKI</option>
-                        <option value="P" {{ old('jenis_kelamin', $patient->jenis_kelamin) == 'P' ? 'selected' : '' }}>PEREMPUAN</option>
-                    </select>
+                    <div class="relative">
+                        <select name="jenis_kelamin" required class="w-full px-5 py-3.5 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-2 focus:ring-emerald-500 outline-none font-bold bg-white cursor-pointer uppercase appearance-none text-slate-700">
+                            <option value="L" {{ old('jenis_kelamin', $patient->jenis_kelamin) == 'L' ? 'selected' : '' }}>LAKI-LAKI</option>
+                            <option value="P" {{ old('jenis_kelamin', $patient->jenis_kelamin) == 'P' ? 'selected' : '' }}>PEREMPUAN</option>
+                        </select>
+                        <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-4 text-gray-500">
+                            <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+                        </div>
+                    </div>
                 </div>
 
                 <div>
                     <label class="block mb-2 text-[10px] font-black text-gray-400 uppercase tracking-widest">Alamat Lengkap</label>
                     <textarea name="alamat_lengkap" rows="5" 
-                        class="w-full px-5 py-3.5 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-2 focus:ring-emerald-500 outline-none font-medium text-slate-600 leading-relaxed italic">{{ old('alamat_lengkap', $patient->alamat_lengkap) }}</textarea>
+                        class="w-full px-5 py-3.5 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-2 focus:ring-emerald-500 outline-none font-medium text-slate-600 leading-relaxed italic resize-none">{{ old('alamat_lengkap', $patient->alamat_lengkap) }}</textarea>
                 </div>
             </div>
         </div>

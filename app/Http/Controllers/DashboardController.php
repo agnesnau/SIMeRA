@@ -4,49 +4,79 @@ namespace App\Http\Controllers;
 
 use App\Http\Controllers\Controller;
 use App\Models\Patient;
-use App\Models\User;
-use App\Models\RetentionAction; // Untuk log aktivitas
+use App\Models\RetentionAction; 
+use Carbon\Carbon; 
 
 class DashboardController extends Controller
 {
     public function index()
     {
-        // 1. Data Statistik Kartu
-        $totalUser = User::count();
-        $totalPasien = Patient::count();
-        
-        // Hitung Aktif vs Inaktif (Menggunakan Collection Filter karena attribute 'current_status' itu virtual)
-        // Note: Untuk performa tinggi dengan ribuan data, sebaiknya query database langsung, 
-        // tapi untuk skala prototype/kecil, filter collection ini sudah cukup.
-        $allPatients = Patient::with('lastVisit')->get();
-        $totalInaktif = $allPatients->where('current_status', 'Inaktif')->count();
-        $totalAktif = $totalPasien - $totalInaktif;
+        $now = now();
 
-        // 2. Data Log Aktivitas (Audit Trail)
-        // Mengambil 5 aktivitas terakhir dari tabel retention_actions
-        $recentActivities = RetentionAction::with(['user', 'patient'])
-                            ->latest()
-                            ->take(5)
-                            ->get();
+        // 1. TOTAL PASIEN (Semua Data)
+        // Contoh: 31
+        $totalPasien = Patient::count();
+
+
+        // 2. ARSIP FISIK (Gudang + Sedang Dipilah)
+        // PERBAIKAN: Masukkan status 'pemilahan' ke sini agar data tidak hilang!
+        // Logika: Pasien yang di gudang ATAU sedang dipilah fisik, dianggap arsip fisik.
+        $diGudang = Patient::whereIn('manual_status', ['digudang', 'pemilahan'])->count();
+
+
+        // 3. SUDAH DIMUSNAHKAN
+        $sudahMusnah = Patient::where('manual_status', 'dimusnahkan')->count();
+
+
+        // FILTER: Data yang BELUM masuk Gudang/Musnah/Pemilahan (Murni di Rak Aktif)
+        $filterRakAktif = function($q) {
+            $q->whereNotIn('manual_status', ['digudang', 'pemilahan', 'dimusnahkan', 'siap_musnah'])
+              ->orWhereNull('manual_status');
+        };
+
+        // 4. SIAP MUSNAH / KANDIDAT RETENSI (> 5 Tahun)
+        // Syarat: Ada di rak aktif TAPI sudah tua, ATAU status manualnya 'siap_musnah'
+        $siapMusnah = Patient::where(function($q) use ($now) {
+                // A. Yang status manualnya 'siap_musnah'
+                $q->where('manual_status', 'siap_musnah')
+                  // B. ATAU yang statusnya kosong tapi tanggalnya > 5 tahun
+                  ->orWhere(function($sub) use ($now) {
+                      $sub->whereNotIn('manual_status', ['digudang', 'pemilahan', 'dimusnahkan', 'siap_musnah'])
+                          ->orWhereNull('manual_status')
+                          ->whereHas('lastVisit', function($lv) use ($now) {
+                              $lv->where('tgl_kunjungan', '<=', $now->copy()->subYears(5));
+                          });
+                  });
+            })->count();
+
+
+        // 5. RM AKTIF (< 2 Tahun)
+        $aktif = Patient::where($filterRakAktif)
+            ->whereHas('lastVisit', function($q) use ($now) {
+                $q->where('tgl_kunjungan', '>', $now->copy()->subYears(2));
+            })->count();
+
+
+        // 6. RM INAKTIF (2 - 5 Tahun)
+        $inaktif = Patient::where($filterRakAktif)
+            ->whereHas('lastVisit', function($q) use ($now) {
+                $q->where('tgl_kunjungan', '<=', $now->copy()->subYears(2))
+                  ->where('tgl_kunjungan', '>', $now->copy()->subYears(5));
+            })->count();
+
+
+        // DATA LOG
+        $recentActivities = RetentionAction::with(['user', 'patient'])->latest()->take(5)->get();
 
         return view('dashboard', compact(
-            'totalUser', 
-            'totalPasien', 
-            'totalAktif', 
-            'totalInaktif',
-            'recentActivities'
+            'totalPasien', 'aktif', 'inaktif', 'siapMusnah', 
+            'diGudang', 'sudahMusnah', 'recentActivities'
         ));
     }
+
     public function refreshActivities()
     {
-        // 1. Ambil 5 data aktivitas terbaru dari database
-        $recentActivities = RetentionAction::with(['user', 'patient'])
-                            ->latest()
-                            ->take(5)
-                            ->get();
-    
-        // 2. Masukkan data itu ke dalam file "partials.activity_rows"
-        // 3. render() artinya: ubah kode PHP jadi HTML biasa supaya bisa dibaca browser
+        $recentActivities = RetentionAction::with(['user', 'patient'])->latest()->take(5)->get();
         return view('partials.activity_rows', compact('recentActivities'))->render();
     }
 }

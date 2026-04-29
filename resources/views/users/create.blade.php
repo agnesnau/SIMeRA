@@ -41,7 +41,7 @@
         </div>
 
         <div class="mb-5">
-            <label for="username" class="block mb-2 text-sm font-medium text-gray-700">Username</label>
+            <label for="username" class="block mb-2 text-sm font-medium text-gray-700">Username/Email</label>
             <input type="text" name="username" id="username" value="{{ old('username') }}" required 
                 class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-emerald-500 focus:border-emerald-500 outline-none transition-all"
                 placeholder="cth: admin123">

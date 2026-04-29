@@ -5,15 +5,18 @@ namespace App\Http\Controllers;
 use App\Models\Patient;
 use App\Models\RetentionAction;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB; // Tambahkan ini biar \DB::transaction aman
+use Illuminate\Support\Facades\DB;
 
 class PemilahanController extends Controller
 {
     public function index(Request $request)
     {
+        // AMBIL DATA, TAPI SEMBUNYIKAN YANG SUDAH MASUK BA FINAL (status_approval = 2)
         $query = Patient::with(['lastVisit', 'actions'])
-                        ->where('manual_status', 'pemilahan');
+                        ->where('manual_status', 'pemilahan')
+                        ->where('status_approval', '!=', 2); // <--- INI KUNCI PENGHILANGNYA
 
+        // (Logika pencarian / search tetap biarkan seperti aslinya)
         if ($request->filled('search')) {
             $search = $request->search;
             $query->where(function($q) use ($search) {
@@ -22,69 +25,80 @@ class PemilahanController extends Controller
             });
         }
 
-        $patients = $query->latest()->paginate(10);
-
-        // Pastikan nama file view Anda benar (misal: retention/pemilahan.blade.php)
+        $patients = $query->latest('updated_at')->paginate(10);
         return view('retention.pemilahan', compact('patients'));
     }
 
-    /**
-     * PERBAIKAN: finishSorting (Satuan) disamakan logic-nya dengan Massal
-     */
-    public function finishSorting($id)
+    public function approve(Request $request)
     {
-        $patient = Patient::findOrFail($id);
-        
-        // UBAH KE 'digudang' (Bukan NULL) agar konsisten dengan fitur massal
-        $patient->update(['manual_status' => 'digudang']);
-
-        RetentionAction::create([
-            'patient_id'  => $id,
-            'user_id'     => auth()->id(),
-            'action_type' => 'masuk_gudang', // Samakan juga action_type-nya
-            'keterangan'  => 'Proses Pemilahan Berkas Selesai. Berkas dipindahkan ke Gudang Inaktif.'
-        ]);
-
-        return redirect()->route('retensi.pemilahan')->with('success', 'Pemilahan selesai. Berkas resmi masuk Ruang Inaktif.');
-    }
-
-    public function bulkPemilahanRequest(Request $request)
-    {
-        $ids = explode(',', $request->ids);
-        if (empty($ids) || $request->ids == "") {
-            return back()->with('error', 'Pilih data pasien terlebih dahulu.');
+        // SUDAH DITAMBAHKAN 'supervisor' AGAR KAPUSKESMAS BISA ACC
+        $level = strtolower(auth()->user()->level);
+        if (!in_array($level, ['kapuskesmas', 'kepala', 'supervisor'])) {
+            return back()->with('error', 'Akses Ditolak! Hanya Kepala Puskesmas yang berhak menyetujui pemindahan arsip.');
         }
 
-        Patient::whereIn('id', $ids)->update(['manual_status' => 'pemilahan']);
-        
-        return back()->with('success', count($ids) . ' berkas dipindahkan ke Pemilahan.');
+        $ids = explode(',', $request->ids);
+        if (empty($ids) || $request->ids == "") {
+            return back()->with('error', 'Tidak ada data pasien untuk disetujui.');
+        }
+
+        Patient::whereIn('id', $ids)->update(['status_approval' => 1]);
+
+        return back()->with('success', count($ids) . ' berkas telah DISETUJUI Kapuskesmas. Petugas kini dapat memindahkan berkas ke gudang.');
     }
 
+    /**
+     * PETUGAS: Membatalkan berkas yang SUDAH DI-ACC karena tidak cocok dengan fisik rak
+     */
+    public function koreksiEksekusi($id)
+    {
+        $patient = Patient::findOrFail($id);
+
+        // Hanya bisa dikoreksi jika statusnya masih pemilahan tapi sudah di-ACC
+        if ($patient->manual_status === 'pemilahan' && $patient->status_approval == 1) {
+            $patient->update([
+                'manual_status' => 'aktif', // Kembalikan jadi aktif
+                'status_approval' => 0      // Buka gembok ACC
+            ]);
+
+            // Catat log agar transparan
+            RetentionAction::create([
+                'patient_id'  => $patient->id,
+                'user_id'     => auth()->id(),
+                'action_type' => 'koreksi_data',
+                'keterangan'  => 'Koreksi: Dibatalkan setelah ACC Kapuskesmas karena berkas fisik di rak masih aktif.'
+            ]);
+
+            return back()->with('success', 'Koreksi berhasil! Berkas dikembalikan ke status Aktif.');
+        }
+
+        return back()->with('error', 'Koreksi gagal. Berkas tidak valid untuk dikoreksi.');
+    }
+    
     public function finishAllSorting()
     {
-        $patientsInSorting = Patient::where('manual_status', 'pemilahan')->get();
+        $patientsInSorting = Patient::where('manual_status', 'pemilahan')
+                                    ->where('status_approval', 1)
+                                    ->get();
 
         if ($patientsInSorting->isEmpty()) {
-            return back()->with('error', 'Tidak ada berkas yang perlu diproses.');
+            return back()->with('error', 'Tidak ada berkas yang siap diproses atau berkas belum di-ACC oleh Kepala Puskesmas.');
         }
 
         DB::transaction(function () use ($patientsInSorting) {
-            
-            // A. Update Status Pasien secara massal
-            Patient::where('manual_status', 'pemilahan')
+            Patient::whereIn('id', $patientsInSorting->pluck('id'))
                    ->update(['manual_status' => 'digudang']);
 
-            // B. Catat Log
             foreach ($patientsInSorting as $p) {
                 RetentionAction::create([
                     'patient_id'  => $p->id,
                     'user_id'     => auth()->id(),
                     'action_type' => 'masuk_gudang', 
-                    'keterangan'  => 'Berkas selesai dipilah dan resmi masuk Gudang Inaktif.'
+                    'keterangan'  => 'Berkas selesai dipilah dan resmi masuk Gudang Inaktif setelah disetujui Kapuskesmas.'
                 ]);
             }
         });
 
-        return back()->with('success', 'Seluruh berkas telah dipindahkan ke Gudang Inaktif!');
+        return back()->with('success', 'Berhasil! '. $patientsInSorting->count() .' berkas yang disetujui telah masuk ke Gudang Inaktif.');
     }
 }

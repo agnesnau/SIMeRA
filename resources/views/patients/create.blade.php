@@ -6,7 +6,6 @@
     <form action="{{ route('patients.store') }}" method="POST" class="space-y-6">
         @csrf
         
-        <!-- BAGIAN 1: BIODATA PASIEN -->
         <div class="bg-white p-10 rounded-3xl shadow-sm border border-gray-100">
             <div class="mb-8 pb-6 border-b border-gray-100 flex justify-between items-center">
                 <div>
@@ -61,7 +60,6 @@
             </div>
         </div>
 
-        <!-- BAGIAN 2: KUNJUNGAN PERTAMA (OPTIONAL TOGGLE) -->
         <div class="bg-blue-600 rounded-3xl shadow-xl overflow-hidden transition-all">
             <div class="p-6 flex items-center justify-between cursor-pointer select-none" @click="openVisit = !openVisit">
                 <div class="flex items-center gap-4 text-white">
@@ -70,17 +68,15 @@
                     </div>
                     <div>
                         <h3 class="font-black uppercase text-sm tracking-widest">Catat Kunjungan Pertama?</h3>
-                        <p class="text-[10px] text-blue-100 font-medium italic">Klik untuk membuka formulir riwayat medis (Poli, Dokter, Diagnosa)</p>
+                        <p class="text-[10px] text-blue-100 font-medium italic">Klik untuk membuka formulir detail kunjungan (Poli & Pembayaran)</p>
                     </div>
                 </div>
-                <!-- Hidden Checkbox untuk Logic Backend -->
                 <input type="checkbox" name="catat_kunjungan" x-model="openVisit" class="hidden">
                 <div class="w-12 h-6 rounded-full relative transition-colors border-2 border-white/30" :class="openVisit ? 'bg-emerald-500' : 'bg-blue-800'">
                     <div class="absolute top-0.5 w-4 h-4 bg-white rounded-full transition-all" :class="openVisit ? 'left-6' : 'left-1'"></div>
                 </div>
             </div>
 
-            <!-- FORM KUNJUNGAN (ANIMASI SLIDE DOWN) -->
             <div x-show="openVisit" x-cloak x-transition.scale.origin.top class="p-10 bg-white border-t border-blue-50 space-y-6">
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
                     <div class="space-y-5">
@@ -95,27 +91,22 @@
                                 <option value="Umum">POLI UMUM</option>
                                 <option value="Gigi">POLI GIGI</option>
                                 <option value="KIA">KIA / KB</option>
-                                <option value="IGD">IGD / GAWAT DARURAT</option>
                             </select>
                         </div>
                     </div>
                     <div class="space-y-5">
                         <div>
-                            <label class="block mb-2 text-[10px] font-black text-blue-400 uppercase tracking-widest">Dokter Pemeriksa</label>
-                            <input type="text" name="nama_dokter" placeholder="dr. ..." 
-                                class="w-full px-5 py-3 bg-blue-50 border border-blue-100 rounded-2xl outline-none font-bold text-blue-900">
-                        </div>
-                        <div>
-                            <label class="block mb-2 text-[10px] font-black text-blue-400 uppercase tracking-widest">Diagnosa Akhir</label>
-                            <textarea name="diagnosa" rows="2" placeholder="Catatan penyakit..." 
-                                class="w-full px-5 py-3 bg-blue-50 border border-blue-100 rounded-2xl outline-none font-medium text-blue-900 italic"></textarea>
+                            <label class="block mb-2 text-[10px] font-black text-blue-400 uppercase tracking-widest">Metode Pembayaran</label>
+                            <select name="pembayaran" class="w-full px-5 py-3 bg-blue-50 border border-blue-100 rounded-2xl font-bold text-blue-900 bg-white cursor-pointer">
+                                <option value="BPJS">BPJS KESEHATAN</option>
+                                <option value="UMUM">UMUM (MANDIRI)</option>
+                            </select>
                         </div>
                     </div>
                 </div>
             </div>
         </div>
 
-        <!-- BUTTON AKSI -->
         <div class="flex justify-end gap-3 pt-6">
             <button type="submit" class="w-full md:w-auto px-12 py-4 bg-emerald-600 text-white rounded-2xl font-black shadow-xl shadow-emerald-100 hover:bg-emerald-700 transition-all uppercase tracking-widest text-xs active:scale-95">
                 Simpan Rekam Medis

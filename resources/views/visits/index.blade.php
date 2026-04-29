@@ -74,7 +74,7 @@
                         <th class="px-6 py-4">No RM</th>
                         <th class="px-6 py-4">Identitas Pasien</th>
                         <th class="px-6 py-4">Tgl Kunjungan</th>
-                        <th class="px-6 py-4">Poli / Dokter</th>
+                        <th class="px-6 py-4">Poli Tujuan</th>
                         <th class="px-6 py-4 text-center">Status</th>
                         <th class="px-6 py-4 text-center">Aksi</th>
                     </tr>
@@ -95,11 +95,9 @@
                         </td>
                         <td class="px-6 py-4">
                             <div class="font-medium text-gray-800">{{ $v->tgl_kunjungan->format('d/m/Y') }}</div>
-                            <div class="text-[10px] text-gray-400 italic">{{ $v->tgl_kunjungan->format('H:i') }} WIB</div>
                         </td>
                         <td class="px-6 py-4">
                             <div class="text-xs font-bold text-blue-700 uppercase">{{ $v->poli_tujuan ?? 'Poli Umum' }}</div>
-                            <div class="text-[10px] text-gray-400 uppercase font-medium">dr. {{ $v->dokter }}</div>
                         </td>
                         <td class="px-6 py-4 text-center">
                             @php $status = $v->patient->current_status ?? 'Aktif'; @endphp
@@ -121,9 +119,7 @@
                                 </a>
 
                                 @if(auth()->user()->level !== 'supervisor')
-                                <a href="{{ route('visits.edit', $v->id) }}" class="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all" title="Edit Riwayat">
-                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path></svg>
-                                </a>
+                                
                                 <form action="{{ route('visits.destroy', $v->id) }}" method="POST" onsubmit="return confirm('Hapus riwayat kunjungan ini?')">
                                     @csrf @method('DELETE')
                                     <button type="submit" class="p-2 text-slate-400 hover:text-red-600 transition-colors">

@@ -33,7 +33,7 @@
                     </div>
 
                     <div>
-                        <label class="block text-sm font-bold text-gray-700 mb-2">Username</label>
+                        <label class="block text-sm font-bold text-gray-700 mb-2">Username/Email</label>
                         <input type="text" name="username" value="{{ old('username', $user->username) }}" class="w-full px-4 py-2 border rounded-lg focus:ring-emerald-500 focus:border-emerald-500 bg-gray-50" required>
                     </div>
 

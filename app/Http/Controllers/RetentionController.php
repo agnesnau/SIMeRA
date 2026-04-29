@@ -116,16 +116,18 @@ class RetentionController extends Controller
     public function sendToSorting($id)
     {
         $patient = Patient::findOrFail($id);
-        $patient->update(['manual_status' => 'pemilahan']);
+        
+        // PERBAIKAN: SET STATUS_APPROVAL = 0 (GEMBOK TERTUTUP)
+        $patient->update(['manual_status' => 'pemilahan', 'status_approval' => 0]);
 
         RetentionAction::create([
             'patient_id'  => $id,
             'user_id'     => auth()->id(),
             'action_type' => 'pindah_pemilahan',
-            'keterangan'  => 'Berkas dipindahkan ke Meja Pemilahan fisik di gudang.'
+            'keterangan'  => 'Berkas diusulkan untuk pindah ke Gudang Inaktif (Menunggu ACC).'
         ]);
 
-        return back()->with('success', 'Data Pasien berhasil dipindahkan ke Meja Pemilahan.');
+        return back()->with('success', 'Usulan Pindah Gudang berhasil dikirim. Menunggu persetujuan Kapuskesmas.');
     }
 
     /**
@@ -138,32 +140,27 @@ class RetentionController extends Controller
         }
 
         if (!$request->filled('action_type')) {
-            return back()->with('error', 'Pilih tindakan (Hapus/Pindah) yang ingin dilakukan pada data terpilih.');
+            return back()->with('error', 'Pilih tindakan yang ingin dilakukan pada data terpilih.');
         }
         
         $ids = explode(',', $request->ids);
         $jumlah = count($ids);
 
-        if ($request->action_type === 'hapus') {
-            Visit::whereIn('patient_id', $ids)->delete();
-            RetentionAction::whereIn('patient_id', $ids)->delete();
-            Patient::whereIn('id', $ids)->delete();
+        if ($request->action_type === 'pindah') {
             
-            return back()->with('success', "Berhasil! Sebanyak $jumlah data pasien telah dihapus secara permanen dari sistem.");
-            
-        } elseif ($request->action_type === 'pindah') {
-            Patient::whereIn('id', $ids)->update(['manual_status' => 'pemilahan']);
+            // PERBAIKAN: SET STATUS_APPROVAL = 0 (GEMBOK TERTUTUP)
+            Patient::whereIn('id', $ids)->update(['manual_status' => 'pemilahan', 'status_approval' => 0]);
             
             foreach($ids as $id) {
                 RetentionAction::create([
                     'patient_id'  => $id,
                     'user_id'     => auth()->id(),
                     'action_type' => 'pindah_pemilahan',
-                    'keterangan'  => 'Berkas dipindahkan secara massal ke Meja Pemilahan.'
+                    'keterangan'  => 'Berkas diusulkan secara massal ke Gudang Inaktif (Menunggu ACC).'
                 ]);
             }
             
-            return back()->with('success', "Berhasil! Sebanyak $jumlah berkas telah dipindahkan ke daftar Meja Pemilahan.");
+            return back()->with('success', "Berhasil! Sebanyak $jumlah berkas telah diusulkan pindah ke Gudang Inaktif.");
         }
 
         return back()->with('error', 'Tindakan tidak dikenali oleh sistem.');

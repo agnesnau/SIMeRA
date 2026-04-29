@@ -14,15 +14,12 @@
 
     <div class="flex min-h-screen">
         
-        <!-- BAGIAN KIRI: Form Login -->
         <div class="flex flex-1 flex-col justify-center px-4 py-12 sm:px-6 lg:flex-none lg:px-20 xl:px-24 w-full lg:w-[45%] bg-white z-10 relative">
             <div class="mx-auto w-full max-w-sm lg:w-96">
                 
-                <!-- Logo & Judul -->
                 <div class="mb-10">
                     <div class="flex items-center gap-3 mb-6">
                         <div class="flex h-12 w-12 items-center justify-center rounded-xl bg-emerald-600 text-white shadow-lg shadow-emerald-200">
-                            <!-- Ikon Arsip/Database -->
                             <svg class="h-7 w-7" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
                             </svg>
@@ -35,7 +32,6 @@
                     </p>
                 </div>
 
-                <!-- Alert Error -->
                 @if ($errors->any())
                 <div class="mb-6 rounded-lg bg-red-50 p-4 border border-red-100">
                     <div class="flex">
@@ -51,7 +47,6 @@
                 </div>
                 @endif
 
-                <!-- Form -->
                 <form action="{{ route('login') }}" method="POST" class="space-y-6">
                     @csrf
                     
@@ -69,14 +64,9 @@
                         </div>
                     </div>
 
-                    <div class="flex items-center justify-between">
-                        <div class="flex items-center">
-                            <input id="remember-me" name="remember-me" type="checkbox" class="h-4 w-4 rounded border-gray-300 text-emerald-600 focus:ring-emerald-600">
-                            <label for="remember-me" class="ml-2 block text-sm text-gray-900">Ingat saya</label>
-                        </div>
-                        <div class="text-sm">
-                            <a href="#" class="font-medium text-emerald-600 hover:text-emerald-500">Lupa password?</a>
-                        </div>
+                    <div class="flex items-center">
+                        <input id="remember-me" name="remember-me" type="checkbox" class="h-4 w-4 rounded border-gray-300 text-emerald-600 focus:ring-emerald-600">
+                        <label for="remember-me" class="ml-2 block text-sm text-gray-900">Ingat saya</label>
                     </div>
 
                     <div>
@@ -92,15 +82,11 @@
             </div>
         </div>
 
-        <!-- BAGIAN KANAN: Gambar Full Height -->
         <div class="relative hidden w-0 flex-1 lg:block">
-            <!-- Gambar Background -->
             <img class="absolute inset-0 h-full w-full object-cover" src="img/bg login.jpg" alt="Background Image">
             
-            <!-- Gradient Overlay -->
             <div class="absolute inset-0 bg-gradient-to-t from-emerald-900/90 to-emerald-900/40 mix-blend-multiply"></div>
             
-            <!-- Text on Image -->
             <div class="absolute bottom-0 left-0 right-0 p-20 text-white">
                 <h2 class="text-4xl font-bold mb-4">SIMeRA</h2>
                 <p class="text-lg text-emerald-100 max-w-xl">

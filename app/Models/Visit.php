@@ -9,23 +9,15 @@ class Visit extends Model
 {
     use HasFactory;
 
-    /**
-     * Kolom yang boleh diisi untuk data kunjungan.
-     * diagnosa, poli_tujuan, dan dokter ditambahkan agar data import Excel tersimpan.
-     */
     protected $fillable = [
         'no_registrasi',
         'patient_id',
         'tgl_kunjungan',
         'poli_tujuan',
-        'dokter',
-        'diagnosa',
+        'pembayaran',
         'user_id'
     ];
-
-    /**
-     * Pastikan tgl_kunjungan dibaca sebagai objek tanggal (Carbon)
-     */
+    
     protected $casts = [
         'tgl_kunjungan' => 'date',
     ];

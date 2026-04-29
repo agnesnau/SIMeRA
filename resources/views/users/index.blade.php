@@ -34,13 +34,17 @@
                     </td>
 
                     <td class="px-6 py-4 font-medium text-gray-800">
-                        <div class="flex items-center gap-3">
-                            <div class="w-8 h-8 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center font-bold text-xs ring-2 ring-white shadow-sm">
+                    <div class="flex items-center gap-3">
+                        <div class="w-8 h-8 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center font-bold text-xs ring-2 ring-white shadow-sm overflow-hidden">
+                            @if($user->foto)
+                                <img src="{{ asset('storage/' . $user->foto) }}" class="w-full h-full object-cover">
+                            @else
                                 {{ substr($user->nama_lengkap ?? $user->name, 0, 1) }}
-                            </div>
-                            {{ $user->nama_lengkap ?? $user->name }}
+                            @endif
                         </div>
-                    </td>
+                        {{ $user->nama_lengkap ?? $user->name }}
+                    </div>
+                </td>
                     <td class="px-6 py-4 text-gray-600">{{ $user->email ?? $user->username }}</td>
                     <td class="px-6 py-4">
                         @if($user->level == 'admin')
