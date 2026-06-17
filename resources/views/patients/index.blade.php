@@ -43,10 +43,13 @@
     <!-- 1. HEADER & PENCARIAN -->
     <div class="bg-white p-4 rounded-xl shadow-sm border border-gray-100 flex flex-col md:flex-row justify-between items-center gap-4">
         <form action="{{ route('patients.index') }}" method="GET" class="flex flex-col md:flex-row gap-3 w-full md:w-auto">
+            <!-- JANGAN LUPA BAWA PER_PAGE JIKA SEDANG SEARCH -->
+            @if(request()->has('per_page'))
+                <input type="hidden" name="per_page" value="{{ request('per_page') }}">
+            @endif
+
             <div class="relative w-full md:w-64">
-                <span class="absolute inset-y-0 left-0 pl
-                
-                -3 flex items-center text-gray-400">
+                <span class="absolute inset-y-0 left-0 pl-3 flex items-center text-gray-400">
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
                 </span>
                 <input type="text" name="search" value="{{ request('search') }}" placeholder="Cari Nama / No RM..." 
@@ -139,25 +142,18 @@
 
                         <td class="px-6 py-4 text-center">
     {{-- LOGIKA PRIORITAS: Cek Status Manual Dulu --}}
-    
     @if($p->manual_status === 'digudang')
-        {{-- 1. JIKA SUDAH DI GUDANG --}}
         <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-gray-100 text-gray-800 border border-gray-200 uppercase tracking-wide">
             📁 Di Gudang
         </span>
-
     @elseif($p->manual_status === 'pemilahan')
-        {{-- 2. JIKA SEDANG DIPILAH --}}
         <span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-200 uppercase tracking-wide animate-pulse">
             ⚠️ Sedang Dipilah
         </span>
-
     @else
-        {{-- 3. JIKA TIDAK ADA STATUS MANUAL, BARU HITUNG TANGGAL (OTOMATIS) --}}
         @php 
             $status = $p->current_status; // Mengambil dari Accessor Model
         @endphp
-        
         <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold border uppercase tracking-wide
             {{ $status == 'Aktif' ? 'bg-emerald-100 text-emerald-800 border-emerald-200' : 
               ($status == 'Inaktif' ? 'bg-yellow-100 text-yellow-800 border-yellow-200' : 
@@ -169,7 +165,6 @@
 
                         <td class="px-6 py-4 text-center">
                             <div class="flex items-center justify-center gap-2">
-                                <!-- TOMBOL RESUME MEDIS (LINK HALAMAN PENUH - SANGAT KLINIS) -->
                                 <a href="{{ route('patients.show', $p->id) }}" 
                                    class="flex items-center gap-2 px-3 py-1.5 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition shadow-sm active:scale-95" 
                                    title="Buka Resume Medis Selayar Penuh">
@@ -199,11 +194,31 @@
                 </tbody>
             </table>
         </div>
-        <div class="p-4 border-t border-gray-100 bg-gray-50">{{ $patients->withQueryString()->links() }}</div>
+
+        <!-- 4. AREA PAGINATION & OPSI TAMPILKAN DATA (PERUBAHAN ADA DI SINI) -->
+        <div class="p-4 border-t border-gray-100 bg-gray-50 flex flex-col md:flex-row justify-between items-center gap-4">
+            <!-- Dropdown Tampilkan Per Halaman -->
+            <div class="flex items-center gap-3 text-sm text-gray-600 font-medium">
+                <span>Tampilkan</span>
+                <select onchange="window.location.href=this.value" class="border border-gray-300 bg-white rounded-lg px-3 py-1.5 outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 cursor-pointer shadow-sm text-gray-800">
+                    <option value="{{ request()->fullUrlWithQuery(['per_page' => 10]) }}" {{ request('per_page') == 10 ? 'selected' : '' }}>10</option>
+                    <option value="{{ request()->fullUrlWithQuery(['per_page' => 50]) }}" {{ request('per_page') == 50 ? 'selected' : '' }}>50</option>
+                    <option value="{{ request()->fullUrlWithQuery(['per_page' => 100]) }}" {{ request('per_page') == 100 ? 'selected' : '' }}>100</option>
+                    <option value="{{ request()->fullUrlWithQuery(['per_page' => 500]) }}" {{ request('per_page') == 500 ? 'selected' : '' }}>500</option>
+                    <option value="{{ request()->fullUrlWithQuery(['per_page' => 'all']) }}" {{ request('per_page') == 'all' ? 'selected' : '' }}>Semua Data</option>
+                </select>
+                <span>Baris</span>
+            </div>
+
+            <!-- Navigasi Halaman -->
+            <div class="w-full md:w-auto overflow-x-auto">
+                {{ $patients->withQueryString()->links() }}
+            </div>
+        </div>
     </div>
 </div>
 
-<!-- 4. MODAL IMPORT EXCEL -->
+<!-- MODAL IMPORT EXCEL (TETAP SAMA) -->
 @if(strtolower(auth()->user()->level) !== 'supervisor')
 <div id="importModal" class="fixed inset-0 bg-gray-900/60 backdrop-blur-sm hidden z-[100] flex items-center justify-center p-4">
     <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden">

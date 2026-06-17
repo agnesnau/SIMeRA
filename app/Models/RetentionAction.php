@@ -6,7 +6,7 @@ use Illuminate\Database\Eloquent\Model;
 
 class RetentionAction extends Model
 {
-    // Membuka kunci agar semua kolom bisa diisi oleh Seeder/Controller
+    // Membuka kunci agar semua kolom bisa diisi oleh Controller
     protected $guarded = []; 
 
     // Relasi ke User

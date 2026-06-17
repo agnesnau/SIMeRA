@@ -11,6 +11,7 @@ use App\Http\Controllers\EksekusiController;
 use App\Http\Controllers\Auth\LoginController;
 use App\Http\Controllers\ReportController;
 use App\Http\Controllers\PemilahanController;
+use App\Http\Controllers\AuditTrailController;
 
 /*
 |--------------------------------------------------------------------------
@@ -63,13 +64,17 @@ Route::middleware(['auth', 'level:admin,petugas'])->group(function () {
         
         // HANYA PETUGAS YANG BISA EKSEKUSI PEMUSNAHAN FISIK
         Route::post('/eksekusi/{id}/selesai', [EksekusiController::class, 'selesai'])->name('eksekusi.selesai');
+        
+        // --- INI TAMBAHANNYA ---
+        Route::post('/eksekusi/selesaikan-semua', [EksekusiController::class, 'selesaikanSemua'])->name('pemusnahan.selesaikanSemua');
+        // -------------------------
+
         Route::post('/eksekusi/finish-all', [EksekusiController::class, 'destroyAll'])->name('eksekusi.destroyAll'); 
         
         // --- ROUTE BATAL & KOREKSI (EKSEKUSI) ---
         Route::post('/eksekusi/batal/{id}', [EksekusiController::class, 'batalUsul'])->name('eksekusi.batal');
         Route::post('/eksekusi/koreksi/{id}', [EksekusiController::class, 'koreksiEksekusi'])->name('eksekusi.koreksi');    
     });
-
 });
 
 
@@ -104,13 +109,15 @@ Route::middleware(['auth', 'level:admin,petugas,supervisor,kapuskesmas,kepala'])
         Route::get('/', [DestructionController::class, 'index'])->name('pemusnahan.index');
         Route::get('/history', [DestructionController::class, 'history'])->name('pemusnahan.history');
         Route::get('/eksekusi', [EksekusiController::class, 'index'])->name('pemusnahan.eksekusi');
-        
+        Route::post('/eksekusi/bersihkan', [EksekusiController::class, 'bersihkanMeja'])->name('eksekusi.bersihkan');
         // SEMUA BISA AKSES ROUTE INI, TAPI CONTROLLER YANG MENYELEKSI HAK KAPUS
         Route::post('/eksekusi/approve', [EksekusiController::class, 'approve'])->name('eksekusi.approve');
     });
 });
 
-
+Route::middleware(['auth', 'level:admin,supervisor,kapuskesmas,kepala'])->group(function () {
+    Route::get('/audit-trail', [AuditTrailController::class, 'index'])->name('audit.index');
+});
 // ==============================================================================
 // GRUP 3: PELAPORAN (ADMIN & SUPERVISOR/KAPUS)
 // ==============================================================================
@@ -121,7 +128,6 @@ Route::middleware(['auth', 'level:admin,supervisor,kapuskesmas,kepala'])->group(
         Route::get('/reprint/{id}', [ReportController::class, 'reprint'])->name('reprint');
     });
 });
-
 
 // ==============================================================================
 // GRUP 4: SUPER ADMIN (HANYA ADMIN)

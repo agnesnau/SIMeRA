@@ -10,12 +10,9 @@ use Carbon\Carbon;
 
 class DestructionController extends Controller
 {
-    /**
-     * 1. TAMPILKAN DAFTAR UTAMA PEMUSNAHAN (OTOMATIS > 4 TAHUN)
-     */
     public function index(Request $request)
     {
-        // --- BAGIAN A: HITUNG STATISTIK (SAMA KAYA SEBELUMNYA) ---
+        // --- BAGIAN A: HITUNG STATISTIK ---
         $allPatients = Patient::with('lastVisit')->get();
         $stats = ['total_aktif'=>0, 'total_inaktif'=>0, 'siap_musnah'=>0, 'total_pemilahan'=>0];
         foreach ($allPatients as $p) {
@@ -25,7 +22,7 @@ class DestructionController extends Controller
             if($y<2) $stats['total_aktif']++; elseif($y<4) $stats['total_inaktif']++; else $stats['siap_musnah']++;
         }
 
-        // --- BAGIAN B: QUERY DATA (FIX SQL STRICT MODE) ---
+        // --- BAGIAN B: QUERY DATA ---
         $fourYearsAgo = \Carbon\Carbon::now()->subYears(4);
         
         // Default Sortir
@@ -39,10 +36,10 @@ class DestructionController extends Controller
                 $q->whereNull('manual_status')
                   ->orWhereNotIn('manual_status', ['siap_musnah', 'dimusnahkan', 'abadi']);
             })
-            ->groupBy('patients.id') // SOLUSI ERROR 3065: Kelompokkan per pasien
+            ->groupBy('patients.id') 
             ->orderByRaw("MAX(visits.tgl_kunjungan) $sortDir"); // Urutkan berdasarkan tanggal kunjungan terakhir di grup itu
 
-        // 1. Pencarian
+        // Pencarian
         if ($request->filled('search')) {
             $query->where('nama_pasien', 'like', "%{$request->search}%");
         }
@@ -52,7 +49,7 @@ class DestructionController extends Controller
         return view('pemusnahan.index', compact('candidates', 'stats'));
     }
     /**
-     * 2. PROSES PENILAIAN SATUAN (MODAL POPUP) - SUDAH DIPERBAIKI
+     * PROSES PENILAIAN
      * Logic: Mau ada nilai atau tidak, SEMUA MASUK EKSEKUSI.
      */
     public function storeAssessment(Request $request, $id)
@@ -94,7 +91,7 @@ class DestructionController extends Controller
     }
 
     /**
-     * 3. PROSES PENILAIAN MASSAL (CHECKBOX)
+     * PROSES PENILAIAN (CHECKBOX)
      */
     public function bulkAction(Request $request)
     {

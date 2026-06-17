@@ -10,11 +10,11 @@ use Illuminate\Support\Facades\DB;
 class EksekusiController extends Controller
 {
     /**
-     * 1. TAMPILKAN DAFTAR (Termasuk yang sudah selesai biar bisa buat BA)
+     * MENAMPILKAN DAFTAR (Termasuk yang sudah selesai biar bisa buat BA)
      */
     public function index(Request $request)
     {
-        // Kita ambil status 'siap_musnah' DAN 'dimusnahkan' 
+        // ambil status 'siap_musnah' DAN 'dimusnahkan' 
         // supaya yang baru diproses tidak langsung hilang
         $query = Patient::with(['lastVisit'])
                         ->whereIn('manual_status', ['siap_musnah', 'dimusnahkan']); 
@@ -33,7 +33,7 @@ class EksekusiController extends Controller
     }
 
     /**
-     * 2. PETUGAS: Bulk Action "Usul Eksekusi" (Dari Halaman Daftar Utama)
+     * Bulk Action "Usul Eksekusi" (Dari Halaman Daftar Utama)
      */
     public function usulEksekusi(Request $request)
     {
@@ -42,7 +42,7 @@ class EksekusiController extends Controller
             return back()->with('error', 'Pilih data pasien terlebih dahulu.');
         }
 
-        // Pindahkan pasien ke antrean "siap_musnah" dan KUNCI GEMBOK (0)
+        // Pindahkan pasien ke antrean "siap_musnah"
         Patient::whereIn('id', $ids)->update([
             'manual_status' => 'siap_musnah',
             'status_approval' => 0 
@@ -52,14 +52,13 @@ class EksekusiController extends Controller
     }
 
     /**
-     * 3. KAPUSKESMAS: Tombol "Approval / Setujui" di Menu Eksekusi
+     * KAPUSKESMAS: Tombol "Approval / Setujui" di Menu Eksekusi
      */
     public function approve(Request $request)
     {
-        // AMBIL LEVEL USER SEKARANG, BERSIHKAN SPASI, DAN JADIKAN HURUF KECIL
+        // AMBIL LEVEL USER
         $userLevel = trim(strtolower(auth()->user()->level));
 
-        // PROTEKSI: Cek apakah yang klik benar-benar Kapuskesmas atau Kepala
         $allowedLevels = ['kapuskesmas', 'kepala', 'supervisor'];
         
         if (!in_array($userLevel, $allowedLevels)) {
@@ -78,54 +77,48 @@ class EksekusiController extends Controller
     }
 
     /**
-     * 4. PETUGAS: Eksekusi Satuan (Pilih Nilai Guna & Selesai)
+     * PETUGAS: Eksekusi Satuan (Pilih Nilai Guna & Selesai)
      */
     public function selesai(Request $request, $id)
     {
         $patient = Patient::findOrFail($id);
 
-        // PROTEKSI GEMBOK: Tolak kalau Kapuskesmas belum ACC
         if ($patient->status_approval == 0) {
             return back()->with('error', 'Gagal! Berkas ini belum disetujui oleh Kepala Puskesmas.');
         }
 
-        // VALIDASI DINAMIS (Tidak memaksa upload kalau pilih "Tidak Ada")
         $request->validate([
             'status_nilai_guna' => 'required|in:ada,tidak',
             'file_nilai_guna'   => 'required_if:status_nilai_guna,ada|nullable|mimes:pdf,jpg,jpeg,png|max:5120',
-        ], [
-            'status_nilai_guna.required'  => 'Harap pilih status nilai guna!',
-            'file_nilai_guna.required_if' => 'File Nilai Guna wajib diupload karena Anda memilih "Ada"!',
-            'file_nilai_guna.mimes'       => 'Format file harus PDF, JPG, atau PNG.',
-            'file_nilai_guna.max'         => 'Ukuran file maksimal 5MB.'
         ]);
 
         DB::transaction(function () use ($patient, $request) {
             $path = null;
             $keterangan = 'Berkas dimusnahkan (Fisik Sudah Dihancurkan). Tidak ada dokumen bernilai guna.';
 
-            // Jika ada file dan dipilih "Ada", baru diproses simpannya
             if ($request->status_nilai_guna === 'ada' && $request->hasFile('file_nilai_guna')) {
                 $path = $request->file('file_nilai_guna')->store('dokumen_nilai_guna', 'public');
                 $keterangan = 'Berkas dimusnahkan. Dokumen Nilai Guna disimpan di: ' . $path;
             }
 
-            // Ubah status jadi dimusnahkan tapi tetap masuk filter index
+            // PERUBAHAN: Tambahkan 'nilai_guna_path'
             $patient->update([
                 'manual_status' => 'dimusnahkan',
-                'status_approval' => 1 // Tetap 1 supaya tidak terkunci lagi
+                'status_approval' => 1,
+                'nilai_guna_path' => $path 
             ]);
 
-            // Catat Log 
+            // PERUBAHAN: Tambahkan 'file_path'
             RetentionAction::create([
                 'patient_id'  => $patient->id,
                 'user_id'     => auth()->id(),
                 'action_type' => 'pemusnahan_fisik',
-                'keterangan'  => $keterangan
+                'keterangan'  => $keterangan,
+                'file_path'   => $path 
             ]);
         });
 
-        return back()->with('success', 'Berhasil! Status berubah jadi DIMUSNAHKAN. Data tetap tampil untuk keperluan cetak Berita Acara.');
+        return back()->with('success', 'Berhasil! Status berubah jadi DIMUSNAHKAN.');
     }
 
   /**
@@ -214,4 +207,45 @@ class EksekusiController extends Controller
 
         return back()->with('error', 'Gagal membatalkan! Berkas mungkin sudah terlanjur di-ACC atau dieksekusi.');
     }
+
+    /**
+     * 6. PETUGAS: Fitur "Bersihkan Meja Eksekusi"
+     * Memindahkan status 'dimusnahkan' menjadi 'musnah_permanen' 
+     * agar data tidak menumpuk lagi di halaman Eksekusi.
+     */
+    public function selesaikanSemua()
+    {
+        // Cari semua berkas yang sudah dieksekusi (berstatus 'dimusnahkan')
+        $patientsSelesai = Patient::where('manual_status', 'dimusnahkan')->get();
+
+        if ($patientsSelesai->isEmpty()) {
+            return back()->with('error', 'Tidak ada berkas yang selesai dimusnahkan di meja eksekusi.');
+        }
+
+        DB::transaction(function () use ($patientsSelesai) {
+            // Ubah status menjadi 'musnah_permanen' agar otomatis terfilter keluar dari index()
+            Patient::whereIn('id', $patientsSelesai->pluck('id'))
+                   ->update(['manual_status' => 'musnah_permanen']);
+
+            // Catat log untuk transparansi
+            foreach ($patientsSelesai as $p) {
+                RetentionAction::create([
+                    'patient_id'  => $p->id,
+                    'user_id'     => auth()->id(),
+                    'action_type' => 'arsip_final',
+                    'keterangan'  => 'Meja eksekusi dibersihkan. Berkas resmi diarsipkan secara permanen.'
+                ]);
+            }
+        });
+
+        return back()->with('success', 'Meja eksekusi telah dibersihkan! '. $patientsSelesai->count() .' berkas berhasil diarsipkan.');
+    }
+    public function bersihkanMeja()
+{
+    \App\Models\Patient::where('manual_status', 'dimusnahkan')
+                       ->where('status_approval', 1)
+                       ->update(['status_approval' => 2]); 
+    return back()->with('success', 'Meja berhasil dibersihkan!');
+}
+
 }

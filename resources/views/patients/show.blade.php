@@ -288,18 +288,24 @@
                 </div>
             </div>
 
+            <!-- MODIFIKASI: BAGIAN ARSIP DIGITAL ABADI -->
             <div class="bg-blue-600 rounded-2xl shadow-xl overflow-hidden p-6 text-white relative">
                 <div class="absolute -right-4 -top-4 opacity-10">
                     <svg width="120" height="120" fill="currentColor" viewBox="0 0 24 24"><path d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"></path></svg>
                 </div>
                 <h3 class="text-xs font-black text-blue-200 uppercase tracking-widest mb-4">Arsip Digital Abadi</h3>
+                
                 @php
-                    $digitalFile = \App\Models\RetentionAction::where('patient_id', $patient->id)->whereNotNull('file_path')->latest()->first();
+                    // Cek di tabel log aktivitas (RetentionAction)
+                    $actionFile = \App\Models\RetentionAction::where('patient_id', $patient->id)->whereNotNull('file_path')->latest()->first();
+                    
+                    // Cek juga di tabel pasien langsung (nilai_guna_path) - hasil migrasi
+                    $finalPath = $actionFile ? $actionFile->file_path : $patient->nilai_guna_path;
                 @endphp
                 
-                @if($digitalFile)
+                @if($finalPath)
                     <p class="text-[10px] font-medium leading-relaxed mb-4 opacity-80 italic">"Lembar Bernilai Guna Tinggi telah didigitalisasi dan tersimpan aman di server."</p>
-                    <a href="{{ asset('storage/' . $digitalFile->file_path) }}" target="_blank" class="block w-full py-3 bg-white text-blue-700 text-center rounded-xl font-bold text-xs hover:bg-blue-50 transition shadow-lg relative z-10">
+                    <a href="{{ asset('storage/' . $finalPath) }}" target="_blank" class="block w-full py-3 bg-white text-blue-700 text-center rounded-xl font-bold text-xs hover:bg-blue-50 transition shadow-lg relative z-10">
                         BUKA BERKAS DIGITAL
                     </a>
                 @else

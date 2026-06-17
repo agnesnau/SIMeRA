@@ -2,11 +2,27 @@
 @section('title', 'Pelaporan & Berita Acara')
 
 @section('content')
-<!-- Container Utama: Ukuran max-w-5xl yang lebih standar -->
 <div class="max-w-5xl mx-auto px-4 pb-16 space-y-8 animate-in fade-in duration-700" x-data="{ tab: 'retensi' }">
 
-    <!-- 1. HEADER: LEBIH RINGKAS & PROFESIONAL -->
-    <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-200 pb-6">
+    {{-- ========================================================================= --}}
+    {{-- TAMBAHAN WAJIB: BLOK NOTIFIKASI AGAR TAHU ALASAN JIKA MENTAL/GAGAL CETAK --}}
+    {{-- ========================================================================= --}}
+    @if(session('error'))
+    <div class="bg-red-50 text-red-800 p-4 rounded-2xl border border-red-200 flex items-center gap-3 shadow-sm animate-in slide-in-from-top-4">
+        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+        <span class="font-black text-sm uppercase tracking-tight">{{ session('error') }}</span>
+    </div>
+    @endif
+
+    @if(session('success'))
+    <div class="bg-emerald-50 text-emerald-800 p-4 rounded-2xl border border-emerald-200 flex items-center gap-3 shadow-sm animate-in slide-in-from-top-4">
+        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
+        <span class="font-black text-sm uppercase tracking-tight">{{ session('success') }}</span>
+    </div>
+    @endif
+    {{-- ========================================================================= --}}
+
+    <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-200 pb-6 mt-4">
         <div>
             <div class="flex items-center gap-2 mb-1">
                 <span class="px-2.5 py-0.5 bg-emerald-100 text-emerald-700 text-[9px] font-black uppercase tracking-widest rounded-full">Reporting</span>
@@ -17,25 +33,18 @@
         </div>
         
         <div class="flex gap-3">
-            <!-- Statistik Bergaya Badge -->
-            <div class="bg-white px-4 py-2 rounded-xl border border-slate-200 shadow-sm flex items-center gap-3">
-                <div class="w-1.5 h-6 bg-emerald-500 rounded-full"></div>
-                <div>
-                    <p class="text-[8px] font-black text-slate-400 uppercase tracking-widest leading-none">Inaktif</p>
-                    <p class="text-base font-black text-slate-800 leading-none mt-1">{{ $totalInaktif ?? 0 }}</p>
-                </div>
+            <!-- Indikator Warna (Tanpa Angka) -->
+            <div class="bg-white px-3 py-2 rounded-xl border border-slate-200 shadow-sm flex items-center gap-2.5">
+                <div class="w-1.5 h-4 bg-emerald-500 rounded-full"></div>
+                <span class="text-[10px] font-black text-slate-600 uppercase tracking-widest leading-none mt-0.5">Inaktif</span>
             </div>
-            <div class="bg-white px-4 py-2 rounded-xl border border-slate-200 shadow-sm flex items-center gap-3">
-                <div class="w-1.5 h-6 bg-red-500 rounded-full"></div>
-                <div>
-                    <p class="text-[8px] font-black text-slate-400 uppercase tracking-widest leading-none">Musnah</p>
-                    <p class="text-base font-black text-slate-800 leading-none mt-1">{{ $siapMusnah ?? 0 }}</p>
-                </div>
+            <div class="bg-white px-3 py-2 rounded-xl border border-slate-200 shadow-sm flex items-center gap-2.5">
+                <div class="w-1.5 h-4 bg-red-500 rounded-full"></div>
+                <span class="text-[10px] font-black text-slate-600 uppercase tracking-widest leading-none mt-0.5">Musnah</span>
             </div>
         </div>
     </div>
 
-    <!-- 2. NAVIGASI TAB: LEBIH PADAT -->
     <div class="flex justify-center">
         <div class="inline-flex p-1 bg-slate-100 rounded-xl border border-slate-200 shadow-inner">
             <button @click="tab = 'retensi'" 
@@ -59,10 +68,8 @@
         </div>
     </div>
 
-    <!-- 3. KONTEN FORMULIR: SKALA STANDAR -->
     <div class="relative min-h-[500px]">
         
-        <!-- FORM BERITA ACARA RETENSI -->
         <div x-show="tab === 'retensi'" x-cloak class="bg-white rounded-2xl shadow-lg shadow-slate-200/40 border border-slate-100 overflow-hidden animate-in zoom-in-95 duration-500">
             <div class="bg-emerald-600 px-8 py-5 text-white flex justify-between items-center">
                 <div>
@@ -77,8 +84,8 @@
             <form action="{{ route('laporan.cetak') }}" method="POST" target="_blank" class="p-8 space-y-8">
                 @csrf
                 <input type="hidden" name="jenis_ba" value="retensi">
+                <input type="hidden" name="tipe_dokumen" value="berita_acara"> <!-- TAMBAHAN PENTING -->
                 
-                <!-- Administrasi Surat -->
                 <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
                     <div>
                         <label class="block text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Nomor Surat</label>
@@ -94,7 +101,6 @@
                     </div>
                 </div>
 
-                <!-- Tanda Tangan -->
                 <div class="pt-6 border-t border-slate-100">
                     <h4 class="text-[10px] font-black text-slate-800 uppercase tracking-widest mb-6 flex items-center gap-2">
                         <span class="w-6 h-6 bg-slate-900 text-white rounded-md flex items-center justify-center text-[10px]">!</span>
@@ -104,18 +110,18 @@
                     <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
                         <div class="space-y-3">
                             <label class="block text-[10px] font-black text-emerald-600 uppercase tracking-widest">PJ Rekam Medis</label>
-                            <input type="text" name="nama_p1" placeholder="Nama PJ RM" class="w-full border-slate-200 p-3 rounded-xl text-sm outline-none focus:ring-2 focus:ring-emerald-500" required>
-                            <input type="text" name="nip_p1" placeholder="NIP/NIK" class="w-full border-slate-200 p-3 rounded-xl text-xs outline-none">
+                            <input type="text" name="nama_p1" placeholder="Nama PJ RM" class="w-full border border-slate-200 p-3 rounded-xl text-sm outline-none focus:ring-2 focus:ring-emerald-500" required>
+                            <input type="text" name="nip_p1" placeholder="NIP/NIK" class="w-full border border-slate-200 p-3 rounded-xl text-xs outline-none">
                         </div>
                         <div class="space-y-3">
                             <label class="block text-[10px] font-black text-blue-600 uppercase tracking-widest">Kasubag TU</label>
-                            <input type="text" name="nama_p2" placeholder="Nama Kasubag TU" class="w-full border-slate-200 p-3 rounded-xl text-sm outline-none focus:ring-2 focus:ring-emerald-500" required>
-                            <input type="text" name="nip_p2" placeholder="NIP/NIK" class="w-full border-slate-200 p-3 rounded-xl text-xs outline-none">
+                            <input type="text" name="nama_p2" placeholder="Nama Kasubag TU" class="w-full border border-slate-200 p-3 rounded-xl text-sm outline-none focus:ring-2 focus:ring-emerald-500" required>
+                            <input type="text" name="nip_p2" placeholder="NIP/NIK" class="w-full border border-slate-200 p-3 rounded-xl text-xs outline-none">
                         </div>
                         <div class="space-y-3">
                             <label class="block text-[10px] font-black text-slate-800 uppercase tracking-widest">Kepala Puskesmas</label>
                             <input type="text" name="nama_tu" placeholder="Nama Kepala Puskesmas" class="w-full border-2 border-slate-300 p-3 rounded-xl text-sm font-bold focus:ring-2 focus:ring-emerald-500" required>
-                            <input type="text" name="nip_tu" placeholder="NIP Kapus" class="w-full border-slate-200 p-3 rounded-xl text-xs outline-none">
+                            <input type="text" name="nip_tu" placeholder="NIP Kapus" class="w-full border border-slate-200 p-3 rounded-xl text-xs outline-none">
                         </div>
                     </div>
                 </div>
@@ -127,7 +133,7 @@
             </form>
         </div>
 
-        <!-- FORM BERITA ACARA PEMUSNAHAN -->
+
         <div x-show="tab === 'pemusnahan'" x-cloak class="bg-white rounded-2xl shadow-lg border border-slate-100 overflow-hidden animate-in slide-in-from-bottom-6 duration-500">
              <div class="bg-red-600 px-8 py-5 text-white flex justify-between items-center">
                 <div>
@@ -142,6 +148,7 @@
             <form action="{{ route('laporan.cetak') }}" method="POST" target="_blank" class="p-8 space-y-8">
                 @csrf
                 <input type="hidden" name="jenis_ba" value="pemusnahan">
+                <input type="hidden" name="tipe_dokumen" value="berita_acara"> <!-- TAMBAHAN PENTING -->
                 
                 <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
                     <div class="col-span-full bg-red-50/50 p-6 rounded-2xl border border-red-100 space-y-5">
@@ -162,15 +169,43 @@
                     </div>
 
                     <div class="space-y-4">
-                        <label class="block text-[10px] font-black text-slate-700 uppercase tracking-widest">Tim Pelaksana</label>
-                        <input type="text" name="nama_ketua" placeholder="Nama Ketua (PJ RM)" class="w-full border border-slate-200 p-3 rounded-xl text-sm font-bold" required>
-                        <input type="text" name="nama_kapus" placeholder="Nama Kepala Puskesmas" class="w-full border border-slate-200 p-3 rounded-xl text-sm font-bold" required>
+                        <label class="block text-[10px] font-black text-slate-700 uppercase tracking-widest">Pejabat Penandatangan</label>
+                        <div class="flex gap-2">
+                            <input type="text" name="nama_kapus" placeholder="Nama Kapus" class="w-2/3 border border-slate-200 p-3 rounded-xl text-sm font-bold outline-none focus:ring-2 focus:ring-red-500" required>
+                            <input type="text" name="nip_kapus" placeholder="NIP Kapus" class="w-1/3 border border-slate-200 p-3 rounded-xl text-sm outline-none focus:ring-2 focus:ring-red-500">
+                        </div>
+                        <div class="flex gap-2">
+                            <input type="text" name="nama_tu" placeholder="Nama Kasubag TU" class="w-2/3 border border-slate-200 p-3 rounded-xl text-sm font-bold outline-none focus:ring-2 focus:ring-red-500" required>
+                            <input type="text" name="nip_tu" placeholder="NIP Kasubag TU" class="w-1/3 border border-slate-200 p-3 rounded-xl text-sm outline-none focus:ring-2 focus:ring-red-500">
+                        </div>
+                        <div class="flex gap-2">
+                            <input type="text" name="nama_ketua" placeholder="Nama Ketua (PJ RM)" class="w-2/3 border border-slate-200 p-3 rounded-xl text-sm font-bold outline-none focus:ring-2 focus:ring-red-500" required>
+                            <input type="text" name="nip_ketua" placeholder="NIP Ketua" class="w-1/3 border border-slate-200 p-3 rounded-xl text-sm outline-none focus:ring-2 focus:ring-red-500">
+                        </div>
                     </div>
 
                     <div class="space-y-4">
-                        <label class="block text-[10px] font-black text-slate-700 uppercase tracking-widest">Metode & Lokasi</label>
-                        <input type="text" name="metode" value="Dicacah dan dihancurkan" class="w-full border border-slate-200 p-3 rounded-xl text-sm font-bold" required>
-                        <input type="text" name="lokasi" value="Halaman Belakang Puskesmas" class="w-full border border-slate-200 p-3 rounded-xl text-sm font-bold" required>
+                        <label class="block text-[10px] font-black text-slate-700 uppercase tracking-widest">Saksi Pemusnahan</label>
+                        <div class="flex gap-2">
+                            <input type="text" name="nama_saksi1" placeholder="Nama Saksi 1" class="w-2/3 border border-slate-200 p-3 rounded-xl text-sm font-bold outline-none focus:ring-2 focus:ring-red-500" required>
+                            <input type="text" name="nip_saksi1" placeholder="NIP/NIK" class="w-1/3 border border-slate-200 p-3 rounded-xl text-sm outline-none focus:ring-2 focus:ring-red-500">
+                        </div>
+                        <div class="flex gap-2">
+                            <input type="text" name="nama_saksi2" placeholder="Nama Saksi 2" class="w-2/3 border border-slate-200 p-3 rounded-xl text-sm font-bold outline-none focus:ring-2 focus:ring-red-500" required>
+                            <input type="text" name="nip_saksi2" placeholder="NIP/NIK" class="w-1/3 border border-slate-200 p-3 rounded-xl text-sm outline-none focus:ring-2 focus:ring-red-500">
+                        </div>
+                        <div class="flex gap-2">
+                            <input type="text" name="nama_saksi3" placeholder="Nama Saksi 3" class="w-2/3 border border-slate-200 p-3 rounded-xl text-sm font-bold outline-none focus:ring-2 focus:ring-red-500" required>
+                            <input type="text" name="nip_saksi3" placeholder="NIP/NIK" class="w-1/3 border border-slate-200 p-3 rounded-xl text-sm outline-none focus:ring-2 focus:ring-red-500">
+                        </div>
+                    </div>
+
+                    <div class="col-span-full space-y-4 pt-4 border-t border-slate-100">
+                        <label class="block text-[10px] font-black text-slate-700 uppercase tracking-widest">Metode & Lokasi Pemusnahan</label>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <input type="text" name="metode" value="Dicacah dan dihancurkan" class="w-full border border-slate-200 p-3 rounded-xl text-sm font-bold outline-none focus:ring-2 focus:ring-red-500" required>
+                            <input type="text" name="lokasi" value="Halaman Belakang Puskesmas" class="w-full border border-slate-200 p-3 rounded-xl text-sm font-bold outline-none focus:ring-2 focus:ring-red-500" required>
+                        </div>
                     </div>
                 </div>
 
@@ -181,8 +216,8 @@
             </form>
         </div>
 
-        <!-- TAB 3: RIWAYAT ARSIP -->
         <div x-show="tab === 'riwayat'" x-cloak class="bg-white rounded-2xl shadow-lg border border-slate-100 overflow-hidden animate-in fade-in zoom-in-95 duration-500">
+            <!-- (Bagian Riwayat tetap sama persis) -->
             <div class="p-8 border-b border-slate-50 bg-slate-50/50 flex justify-between items-center">
                 <div>
                     <h3 class="text-xl font-black text-slate-800 uppercase tracking-tight">Arsip Digital Laporan</h3>
@@ -203,7 +238,7 @@
                         </tr>
                     </thead>
                     <tbody class="divide-y divide-slate-50">
-                        @forelse($history as $item)
+                        @forelse($history ?? [] as $item)
                         <tr class="hover:bg-slate-50/80 transition-colors">
                             <td class="px-8 py-5">
                                 <div class="font-black text-slate-700 uppercase text-sm leading-none">{{ $item->tanggal_ba->format('d M Y') }}</div>

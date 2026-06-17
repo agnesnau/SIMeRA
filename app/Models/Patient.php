@@ -7,9 +7,6 @@ use Carbon\Carbon;
 
 class Patient extends Model
 {
-    /**
-     * Kolom yang boleh diisi secara massal.
-     */
     protected $fillable = [
         'no_rm', 
         'nama_pasien', 
@@ -18,66 +15,62 @@ class Patient extends Model
         'jenis_kelamin', 
         'alamat_lengkap', 
         'manual_status', 
-        'status_approval'
+        'status_approval',
+        'nilai_guna_path'
     ];
 
     protected $appends = ['current_status'];
 
-    // Relasi ke riwayat kunjungan
     public function visits() {
         return $this->hasMany(Visit::class);
     }
     
-    // Mengambil kunjungan paling baru saja
     public function lastVisit() {
         return $this->hasOne(Visit::class)->latestOfMany('tgl_kunjungan');
     }
 
-    // Relasi ke catatan tindakan retensi (verifikasi fisik & upload)
     public function actions() {
         return $this->hasMany(RetentionAction::class);
     }
 
     /**
-     * Logika Otomatisasi Status Retensi (SOP 2+5)
-     * Menggunakan LOGIKA TANGGAL KETAT (subYears) agar hitungan hari akurat.
+     * Logika Otomatisasi Status Retensi (SOP 2+3 = 5 Tahun)
      */
     public function getCurrentStatusAttribute() {
-        // 1. Cek status manual dulu (Prioritas Utama)
-        // Jika ada status manual, kembalikan status tersebut agar konsisten
-        if ($this->manual_status) {
-            return match($this->manual_status) {
-                'dimusnahkan' => 'Dimusnahkan',
-                'siap_musnah' => 'Siap Musnah',
-                'digudang'    => 'Inaktif', // Dianggap Inaktif karena sudah di gudang
-                'pemilahan'   => 'Inaktif', // Sedang dipilah berarti masuk masa inaktif
-                default       => 'Aktif'
-            };
+        // 1. CEK STATUS MANUAL DENGAN AMAN
+        // Gunakan trim() untuk memastikan spasi kosong (" ") tidak dianggap sebagai status
+        if (!empty(trim($this->manual_status))) {
+            $ms = strtolower(trim($this->manual_status));
+            
+            // Hanya cocokkan status yang valid. Jika tidak valid, biarkan lolos ke perhitungan tanggal.
+            if ($ms === 'dimusnahkan') return 'Dimusnahkan';
+            if ($ms === 'siap_musnah') return 'Siap Musnah';
+            if ($ms === 'digudang') return 'Di Gudang'; // Pisahkan penamaan agar mudah difilter
+            if ($ms === 'pemilahan') return 'Pemilahan';
         }
 
-        // 2. Hitung berdasarkan kunjungan terakhir
+        // 2. HITUNG BERDASARKAN KUNJUNGAN TERAKHIR
         $lastVisit = $this->lastVisit;
         
-        // Jika tidak ada kunjungan, anggap Aktif (Pasien Baru)
+        // Jika benar-benar tidak ada kunjungan, anggap Aktif (Pasien Baru)
         if (!$lastVisit) return 'Aktif'; 
 
         $tglKunjungan = Carbon::parse($lastVisit->tgl_kunjungan);
         
-        // Tentukan Batas Waktu Mundur dari Hari Ini
-        $batasInaktif = now()->subYears(2); // Contoh: Hari ini 2026, batasnya 2024
-        $batasMusnah  = now()->subYears(5); // Contoh: Hari ini 2026, batasnya 2021
+        $batasInaktif = now()->subYears(2); 
+        $batasMusnah  = now()->subYears(5); 
 
-        // 3. Logika Perbandingan Tanggal
+        // 3. LOGIKA TANGGAL KETAT
         if ($tglKunjungan->lessThanOrEqualTo($batasMusnah)) {
-            // Jika kunjungan SEBELUM tahun 2021 (Sudah > 5 Tahun)
+            // Jika Kunjungan <= 2021 (Sudah 5 Tahun atau lebih)
             return 'Siap Musnah';
         } 
         elseif ($tglKunjungan->lessThanOrEqualTo($batasInaktif)) {
-            // Jika kunjungan SEBELUM tahun 2024 (Sudah > 2 Tahun)
+            // Jika Kunjungan <= 2024 (Sudah 2 Tahun, tapi belum 5 tahun)
             return 'Inaktif';
         } 
         else {
-            // Jika kunjungan SETELAH tahun 2024 (Masih Baru)
+            // Jika Kunjungan masih baru
             return 'Aktif';
         }
     }

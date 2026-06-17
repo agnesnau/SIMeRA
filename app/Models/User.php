@@ -11,10 +11,6 @@ class User extends Authenticatable
 {
     use HasApiTokens, HasFactory, Notifiable;
 
-    /**
-     * DAFTAR KOLOM YANG BOLEH DIISI (Sangat Penting!)
-     * Jika kolom baru tidak ada di sini, Seeder akan gagal menyimpan data.
-     */
     protected $fillable = [
         'nama_lengkap',
         'username',

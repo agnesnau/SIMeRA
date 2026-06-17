@@ -14,9 +14,8 @@ class PemilahanController extends Controller
         // AMBIL DATA, TAPI SEMBUNYIKAN YANG SUDAH MASUK BA FINAL (status_approval = 2)
         $query = Patient::with(['lastVisit', 'actions'])
                         ->where('manual_status', 'pemilahan')
-                        ->where('status_approval', '!=', 2); // <--- INI KUNCI PENGHILANGNYA
+                        ->where('status_approval', '!=', 2);
 
-        // (Logika pencarian / search tetap biarkan seperti aslinya)
         if ($request->filled('search')) {
             $search = $request->search;
             $query->where(function($q) use ($search) {
@@ -31,7 +30,7 @@ class PemilahanController extends Controller
 
     public function approve(Request $request)
     {
-        // SUDAH DITAMBAHKAN 'supervisor' AGAR KAPUSKESMAS BISA ACC
+       
         $level = strtolower(auth()->user()->level);
         if (!in_array($level, ['kapuskesmas', 'kepala', 'supervisor'])) {
             return back()->with('error', 'Akses Ditolak! Hanya Kepala Puskesmas yang berhak menyetujui pemindahan arsip.');

@@ -29,12 +29,36 @@
         .content { text-align: justify; margin-bottom: 15px; }
         .content p { margin-bottom: 10px; text-indent: 40px; }
 
-        /* Tanda Tangan 3 Kolom */
-        .ttd-table { width: 100%; margin-top: 40px; border: none; }
-        .ttd-box { text-align: center; vertical-align: top; width: 33%; border: none !important; }
-        .ttd-space { height: 70px; }
-        .ttd-nama { font-weight: bold; text-decoration: underline; margin-bottom: 0; }
-        .ttd-nip { font-size: 10pt; margin-top: 2px; }
+        /* TANDA TANGAN BERSAMA (ANTI POTONG & FULL CENTER) */
+        table.ttd-master {
+            width: 100%;
+            border: none;
+            border-collapse: collapse;
+            margin-top: 30px;
+            page-break-inside: avoid; /* Memaksa PDF tidak memotong tabel ini setengah-setengah */
+        }
+        table.ttd-master td {
+            border: none !important;
+            text-align: center; /* Memastikan semua teks di dalam sel berada tepat di tengah */
+            vertical-align: top;
+            padding: 0;
+        }
+        .ttd-p {
+            margin: 0; /* Wajib: Menghilangkan margin bawaan agar teks tidak miring */
+            line-height: 1.3;
+        }
+        .ttd-space {
+            height: 70px; /* Jarak untuk coretan tanda tangan */
+        }
+        .ttd-nama {
+            font-weight: bold;
+            text-decoration: underline;
+            margin: 0;
+        }
+        .ttd-nip {
+            font-size: 10pt;
+            margin: 2px 0 0 0;
+        }
 
         /* Tabel Data Lampiran */
         table.data { width: 100%; border-collapse: collapse; margin-top: 15px; font-size: 10pt; }
@@ -121,52 +145,118 @@
             <p>Sehubungan dengan pelaksanaan program tertib administrasi kearsipan di lingkungan UPTD Puskesmas Silo 1, maka pada hari ini <strong>{{ $dateObj->translatedFormat('l') }}</strong> tanggal <strong>{{ $dateObj->translatedFormat('d') }}</strong> bulan <strong>{{ $dateObj->translatedFormat('F') }}</strong> tahun <strong>{{ $dateObj->translatedFormat('Y') }}</strong>, kami selaku Tim Penilai Arsip mengusulkan sejumlah berkas sebagaimana terdapat dalam <strong>Lampiran Daftar Pertelaan</strong> untuk dilakukan proses <strong>{{ $jenis_ba == 'retensi' ? 'Pemindahan ke Gudang Inaktif (Retensi)' : 'Pemusnahan Fisik Arsip' }}</strong>.</p>
             
             @if($jenis_ba == 'retensi')
-                <p>Usulan pemindahan ini diajukan dikarenakan berkas rekam medis tersebut telah mencapai batas waktu penyimpanan aktif di rak utama (minimal 5 tahun sejak tanggal kunjungan terakhir). Proses retensi ke rak inaktif ini bertujuan mutlak untuk mengoptimalkan kapasitas ruang penyimpanan utama dan mengamankan fisik berkas sebelum memasuki masa tinjauan inaktif sesuai dengan Standar Operasional Prosedur (SOP) Kearsipan.</p>
+                <p>Usulan pemindahan ini diajukan dikarenakan berkas rekam medis tersebut telah mencapai batas waktu penyimpanan aktif di rak utama (maksimal 2 tahun sejak tanggal kunjungan terakhir). Proses retensi ke rak inaktif ini bertujuan mutlak untuk mengoptimalkan kapasitas ruang penyimpanan utama dan mengamankan fisik berkas sebelum memasuki masa tinjauan inaktif sesuai dengan Standar Operasional Prosedur (SOP) Kearsipan.</p>
             @else
-                <p>Berkas-berkas tersebut diusulkan untuk dimusnahkan secara total dikarenakan telah melewati masa simpan di gudang inaktif dan dinilai sudah tidak memiliki nilai guna administrasi, hukum, keuangan, maupun medis. Pemusnahan ini penting dilaksanakan guna menjaga efisiensi ruang penyimpanan sesuai dengan pedoman penyusutan arsip Rekam Medis yang berlaku.</p>
+                <p>Berkas-berkas tersebut diusulkan untuk dimusnahkan secara total dikarenakan telah melewati masa simpan di gudang inaktif dan dinilai sudah tidak memiliki nilai guna administrasi dan hukum. Pemusnahan ini penting dilaksanakan guna menjaga efisiensi ruang penyimpanan sesuai dengan pedoman pemusnahan arsip Rekam Medis yang berlaku.</p>
             @endif
             
-            <p>Total berkas yang diusulkan dalam agenda ini adalah sebanyak <strong>{{ $total_berkas }} ({{ terbilang($total_berkas) }}) berkas</strong>. Demikian surat usulan ini kami buat dengan sebenar-benarnya untuk dapat dipergunakan sebagai dasar pertimbangan dalam penerbitan Surat Persetujuan (ACC) dari Kepala UPTD Puskesmas Silo 1.</p>
+            <p>Total berkas yang diusulkan dalam agenda ini adalah sebanyak <strong>{{ $total_berkas }} ({{ terbilang($total_berkas) }}) berkas</strong>. Demikian surat usulan ini kami buat dengan sebenar-benarnya untuk dapat dipergunakan sebagai dasar pertimbangan dalam penerbitan Surat Persetujuan dari Kepala UPTD Puskesmas Silo 1.</p>
             
         @else
             {{-- KALIMAT KHUSUS BERITA ACARA FINAL --}}
             <p>Pada hari ini <strong>{{ $dateObj->translatedFormat('l') }}</strong> tanggal <strong>{{ $dateObj->translatedFormat('d') }}</strong> bulan <strong>{{ $dateObj->translatedFormat('F') }}</strong> tahun <strong>{{ $dateObj->translatedFormat('Y') }}</strong>, bertempat di UPTD Puskesmas Silo 1, telah dilaksanakan kegiatan <strong>{{ $jenis_ba == 'retensi' ? 'Retensi dan Pemindahan' : 'Pemusnahan' }}</strong> terhadap berkas rekam medis inaktif sebanyak <strong>{{ $total_berkas }} ({{ terbilang($total_berkas) }}) berkas</strong> sebagaimana tercantum rinciannya dalam Lampiran Daftar Pertelaan.</p>
             
             @if($jenis_ba == 'retensi')
-                <p>Pelaksanaan retensi telah dilakukan secara komprehensif melalui tahap pemilahan berkas dari rak penyimpanan aktif, pencatatan data ke dalam sistem informasi, dan pemindahan fisik ke rak inaktif di Gudang Arsip. Berkas-berkas tersebut selanjutnya akan disimpan serta diawasi selama masa inaktif (minimal 2 tahun) sebelum dilakukan penilaian kembali untuk tindakan penyusutan akhir.</p>
+                <p>Pelaksanaan retensi telah dilakukan melalui tahap pemilahan berkas dari rak penyimpanan aktif, pencatatan data ke dalam sistem informasi, dan pemindahan fisik ke rak inaktif di Gudang. Berkas-berkas tersebut selanjutnya akan disimpan serta diawasi selama masa inaktif (2 tahun) sebelum dilakukan penilaian kembali untuk tindakan penyusutan akhir.</p>
             @else
-                <p>Pelaksanaan pemusnahan dokumen rekam medis tersebut dilakukan dengan cara <strong>{{ $metode }}</strong> sehingga bentuk fisik dan informasi krusial di dalamnya telah hancur dan tidak dapat dikenali lagi. Tindakan ini dilaksanakan berdasarkan Surat Keputusan (SK) Kepala Puskesmas Nomor: <strong>{{ $sk_kapus }}</strong> serta disaksikan langsung oleh pihak-pihak terkait.</p>
+                <p>Pelaksanaan pemusnahan dokumen rekam medis tersebut dilakukan dengan cara <strong>{{ $metode }}</strong> sehingga bentuk fisik dan informasi di dalamnya telah hancur dan tidak dapat dikenali lagi. Tindakan ini dilaksanakan berdasarkan Surat Keputusan (SK) Kepala Puskesmas Nomor: <strong>{{ $sk_kapus }}</strong> serta disaksikan langsung oleh pihak-pihak terkait.</p>
             @endif
 
             <p>Demikian Berita Acara ini dibuat dengan sesungguhnya dan ditandatangani oleh pihak-pihak yang berwenang untuk dapat dipergunakan sebagai pedoman serta pertanggungjawaban administrasi di masa mendatang sebagaimana mestinya.</p>
         @endif
     </div>
 
-    {{-- TANDA TANGAN (HANYA MUNCUL DI HALAMAN SURAT/BA) --}}
-    <table class="ttd-table">
-        <tr>
-            <td class="ttd-box">
-                <p>{{ $isUsulan ? 'Diusulkan Oleh,' : 'Pihak Pertama,' }}<br>{{ $jabatan_p1 ?? 'Ketua Tim' }}</p>
-                <div class="ttd-space"></div>
-                <p class="ttd-nama">{{ $nama_p1 ?? '........................' }}</p>
-                <p class="ttd-nip">NIP. {{ $nip_p1 ?? '-' }}</p>
-            </td>
-            <td class="ttd-box">
-                @if($nama_p2)
-                    <p>{{ $isUsulan ? 'Saksi,' : 'Pihak Kedua,' }}<br>{{ $jabatan_p2 ?? 'Kasubag TU' }}</p>
+    {{-- TANDA TANGAN (Satu Tabel Master Anti Potong) --}}
+    @if($jenis_ba == 'pemusnahan')
+        {{-- LAYOUT KHUSUS PEMUSNAHAN (6 ORANG) --}}
+        <table class="ttd-master">
+            {{-- Baris 1: 3 Saksi --}}
+            <tr>
+                <td style="width: 33%;">
+                    <p class="ttd-p">Saksi 1,</p>
                     <div class="ttd-space"></div>
-                    <p class="ttd-nama">{{ $nama_p2 }}</p>
-                    <p class="ttd-nip">NIP. {{ $nip_p2 ?? '-' }}</p>
-                @endif
-            </td>
-            <td class="ttd-box">
-                <p>{{ $isUsulan ? 'Menyetujui,' : 'Mengetahui,' }}<br>Kepala UPTD Puskesmas Silo 1</p>
-                <div class="ttd-space"></div>
-                <p class="ttd-nama">{{ $nama_kapus ?? '........................' }}</p>
-                <p class="ttd-nip">NIP. {{ $nip_kapus ?? '-' }}</p>
-            </td>
-        </tr>
-    </table>
+                    <p class="ttd-nama">{{ $nama_saksi1 ?? '' }}</p>
+                    <p class="ttd-nip">NIP/NIK. {{ $nip_saksi1 ?? '-' }}</p>
+                </td>
+                <td style="width: 34%;">
+                    <p class="ttd-p">Saksi 2,</p>
+                    <div class="ttd-space"></div>
+                    <p class="ttd-nama">{{ $nama_saksi2 ?? '' }}</p>
+                    <p class="ttd-nip">NIP/NIK. {{ $nip_saksi2 ?? '-' }}</p>
+                </td>
+                <td style="width: 33%;">
+                    <p class="ttd-p">Saksi 3,</p>
+                    <div class="ttd-space"></div>
+                    <p class="ttd-nama">{{ $nama_saksi3 ?? '' }}</p>
+                    <p class="ttd-nip">NIP/NIK. {{ $nip_saksi3 ?? '-' }}</p>
+                </td>
+            </tr>
+            
+            {{-- Baris 2: Kasubag TU & Ketua Tim --}}
+            <tr>
+                <td style="padding-top: 25px;">
+                    <p class="ttd-p">Kasubag TU,</p>
+                    <div class="ttd-space"></div>
+                    <p class="ttd-nama">{{ $nama_tu ?? '' }}</p>
+                    <p class="ttd-nip">NIP. {{ $nip_tu ?? '-' }}</p>
+                </td>
+                <td style="padding-top: 25px;"></td>
+                <td style="padding-top: 25px;">
+                    <p class="ttd-p">Ketua Tim (PJ RM),</p>
+                    <div class="ttd-space"></div>
+                    <p class="ttd-nama">{{ $nama_ketua ?? '' }}</p>
+                    <p class="ttd-nip">NIP. {{ $nip_ketua ?? '-' }}</p>
+                </td>
+            </tr>
+
+            {{-- Baris 3: Kepala Puskesmas --}}
+            <tr>
+                <td colspan="3" style="padding-top: 25px;">
+                    <p class="ttd-p">Mengetahui,</p>
+                    <p class="ttd-p">Kepala UPTD Puskesmas Silo 1</p>
+                    <div class="ttd-space"></div>
+                    <p class="ttd-nama">{{ $nama_kapus ?? '' }}</p>
+                    <p class="ttd-nip">NIP. {{ $nip_kapus ?? '-' }}</p>
+                </td>
+            </tr>
+        </table>
+
+    @else
+        {{-- LAYOUT KHUSUS RETENSI / USULAN (3 ORANG) --}}
+        <table class="ttd-master">
+            <tr>
+                <td style="width: 35%;">
+                    @if(isset($nama_p2) && $nama_p2)
+                        <p class="ttd-p">{{ $isUsulan ? 'Saksi,' : 'Pihak Kedua,' }}</p>
+                        <p class="ttd-p">{{ $jabatan_p2 ?? 'Kasubag TU' }}</p>
+                        <div class="ttd-space"></div>
+                        <p class="ttd-nama">{{ $nama_p2 }}</p>
+                        <p class="ttd-nip">NIP. {{ $nip_p2 ?? '-' }}</p>
+                    @endif
+                </td>
+                
+                <td style="width: 30%;"></td>
+                
+                <td style="width: 35%;">
+                    <p class="ttd-p">{{ $isUsulan ? 'Diusulkan Oleh,' : 'Pihak Pertama,' }}</p>
+                    <p class="ttd-p">{{ $jabatan_p1 ?? 'PJ Rekam Medis' }}</p>
+                    <div class="ttd-space"></div>
+                    <p class="ttd-nama">{{ $nama_p1 ?? '' }}</p>
+                    <p class="ttd-nip">NIP. {{ $nip_p1 ?? '-' }}</p>
+                </td>
+            </tr>
+            
+            <tr>
+                <td colspan="3" style="padding-top: 30px;">
+                    <p class="ttd-p">{{ $isUsulan ? 'Menyetujui,' : 'Mengetahui,' }}</p>
+                    <p class="ttd-p">Kepala UPTD Puskesmas Silo 1</p>
+                    <div class="ttd-space"></div>
+                    <p class="ttd-nama">{{ $nama_kapus ?? '' }}</p>
+                    <p class="ttd-nip">NIP. {{ $nip_kapus ?? '-' }}</p>
+                </td>
+            </tr>
+        </table>
+    @endif
 
 
     {{-- ========================================================================= --}}

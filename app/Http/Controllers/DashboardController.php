@@ -13,20 +13,14 @@ class DashboardController extends Controller
     {
         $now = now();
 
-        // 1. TOTAL PASIEN (Semua Data)
-        // Contoh: 31
+        // TOTAL PASIEN (Semua Data)
         $totalPasien = Patient::count();
 
-
-        // 2. ARSIP FISIK (Gudang + Sedang Dipilah)
-        // PERBAIKAN: Masukkan status 'pemilahan' ke sini agar data tidak hilang!
-        // Logika: Pasien yang di gudang ATAU sedang dipilah fisik, dianggap arsip fisik.
+        // ARSIP FISIK (Gudang + Sedang Dipilah)
         $diGudang = Patient::whereIn('manual_status', ['digudang', 'pemilahan'])->count();
 
-
-        // 3. SUDAH DIMUSNAHKAN
+        // SUDAH DIMUSNAHKAN
         $sudahMusnah = Patient::where('manual_status', 'dimusnahkan')->count();
-
 
         // FILTER: Data yang BELUM masuk Gudang/Musnah/Pemilahan (Murni di Rak Aktif)
         $filterRakAktif = function($q) {
@@ -34,39 +28,34 @@ class DashboardController extends Controller
               ->orWhereNull('manual_status');
         };
 
-        // 4. SIAP MUSNAH / KANDIDAT RETENSI (> 5 Tahun)
-        // Syarat: Ada di rak aktif TAPI sudah tua, ATAU status manualnya 'siap_musnah'
-        $siapMusnah = Patient::where(function($q) use ($now) {
+        $siapMusnah = Patient::where(function($q) use ($now, $filterRakAktif) {
                 // A. Yang status manualnya 'siap_musnah'
                 $q->where('manual_status', 'siap_musnah')
-                  // B. ATAU yang statusnya kosong tapi tanggalnya > 5 tahun
-                  ->orWhere(function($sub) use ($now) {
-                      $sub->whereNotIn('manual_status', ['digudang', 'pemilahan', 'dimusnahkan', 'siap_musnah'])
-                          ->orWhereNull('manual_status')
+                  // B. ATAU yang statusnya kosong tapi tanggalnya > 4 tahun
+                  ->orWhere(function($sub) use ($now, $filterRakAktif) {
+                      // FIX 1: Panggil filter yang sudah dikurung dengan aman di atas
+                      $sub->where($filterRakAktif)
                           ->whereHas('lastVisit', function($lv) use ($now) {
-                              $lv->where('tgl_kunjungan', '<=', $now->copy()->subYears(5));
+                              $lv->where('tgl_kunjungan', '<=', $now->copy()->subYears(4));
                           });
                   });
             })->count();
 
-
-        // 5. RM AKTIF (< 2 Tahun)
+        // RM AKTIF (< 2 Tahun)
         $aktif = Patient::where($filterRakAktif)
             ->whereHas('lastVisit', function($q) use ($now) {
                 $q->where('tgl_kunjungan', '>', $now->copy()->subYears(2));
             })->count();
 
-
-        // 6. RM INAKTIF (2 - 5 Tahun)
+        // 6. RM INAKTIF (2 - 4 Tahun)
         $inaktif = Patient::where($filterRakAktif)
             ->whereHas('lastVisit', function($q) use ($now) {
                 $q->where('tgl_kunjungan', '<=', $now->copy()->subYears(2))
-                  ->where('tgl_kunjungan', '>', $now->copy()->subYears(5));
+                  ->where('tgl_kunjungan', '>', $now->copy()->subYears(4));
             })->count();
 
-
         // DATA LOG
-        $recentActivities = RetentionAction::with(['user', 'patient'])->latest()->take(5)->get();
+        $recentActivities = RetentionAction::with(['user', 'patient'])->latest()->take(4)->get();
 
         return view('dashboard', compact(
             'totalPasien', 'aktif', 'inaktif', 'siapMusnah', 

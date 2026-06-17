@@ -79,17 +79,14 @@
 
     <aside class="sidebar sticky-top overflow-y-auto flex flex-col">
         <div class="p-6 mb-6 sidebar-header flex items-center gap-3">
-            <div class="w-11 h-11 bg-white/10 rounded-2xl flex items-center justify-center border border-white/20 shadow-xl">
-                <svg class="w-7 h-7 text-emerald-400" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
-                    <path d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"></path>
-                </svg>
+            <div class="w-12 h-12 bg-white rounded-full flex items-center justify-center border border-white/20 shadow-xl overflow-hidden">
+                <img src="{{ asset('img/bg login.jpg') }}" alt="Logo Puskesmas" class="w-full h-full object-cover">
             </div>
             <div class="flex flex-col">
                 <span class="text-xl font-extrabold tracking-tighter uppercase leading-none">SIMeRA</span>
                 <span class="text-[9px] font-bold text-emerald-400/60 uppercase tracking-[0.2em] mt-1">Sistem Manajemen Retensi Arsip</span>
             </div>
         </div>
-
         <ul class="nav flex-column flex-1">
             <li class="nav-item">
                 <a href="{{ route('dashboard') }}" class="nav-link {{ request()->routeIs('dashboard') ? 'active' : '' }}">
@@ -177,6 +174,15 @@
             </li>
             @endif
         </ul>
+        
+        <div class="px-7 mt-8 mb-2 text-[10px] font-black text-emerald-400/40 uppercase tracking-[0.3em]">Log Sistem</div>
+        
+        <li class="nav-item">
+            <a href="{{ route('audit.index') }}" class="nav-link {{ request()->routeIs('audit.index') ? 'active' : '' }}">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                Riwayat Aktivitas
+            </a>
+        </li>
 
         <div class="p-6 mt-auto border-t border-white/5 mx-4 mb-4">
             <form action="{{ route('logout') }}" method="POST">
@@ -197,6 +203,8 @@
                     @yield('title')
                 </h1>
             </div>
+
+            
             
             <div class="flex items-center gap-4">
                 <div class="text-right hidden md:block">

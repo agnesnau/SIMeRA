@@ -84,24 +84,52 @@
 
             @php
                 // =========================================================
-                // PERBAIKAN FATAL: LOGIKA MENGHITUNG YANG BELUM ACC
+                // PERBAIKAN FATAL: LOGIKA MENGHITUNG YANG BELUM ACC & SISA EKSEKUSI
                 // =========================================================
-                // Kita gunakan array kosong, lalu kita isi secara manual
                 $idYangBelumAcc = [];
                 $jumlahBelumAcc = 0;
+                $jumlahSelesaiDieksekusi = 0;
+                $jumlahSiapEksekusi = 0;
 
                 foreach($patients as $p) {
-                    // Cek jika statusnya BUKAN 1 (Bukan angka 1, bukan string "1")
-                    // DAN statusnya belum dieksekusi (bukan dimusnahkan)
-                    if($p->status_approval != 1 && $p->manual_status != 'dimusnahkan') {
-                        $idYangBelumAcc[] = $p->id;
-                        $jumlahBelumAcc++;
+                    if($p->status_approval != 2) {
+                        if($p->manual_status === 'dimusnahkan') {
+                            $jumlahSelesaiDieksekusi++;
+                        } elseif($p->status_approval != 1) {
+                            $idYangBelumAcc[] = $p->id;
+                            $jumlahBelumAcc++;
+                        } else {
+                            $jumlahSiapEksekusi++;
+                        }
                     }
                 }
             @endphp
 
             @if($patients->count() > 0)
                 <div class="flex gap-3">
+
+                    {{-- TOMBOL SELESAI & BERSIHKAN MEJA (SELALU MUNCUL AGAR PETUGAS TAHU) --}}
+                    @if($isPetugas)
+                        <form action="{{ route('eksekusi.bersihkan') }}" method="POST" onsubmit="return confirm('KONFIRMASI: Apakah Anda yakin ingin membersihkan meja? Berkas yang sudah dieksekusi akan hilang dari daftar ini dan siap dicetak Berita Acaranya.')">
+                            @csrf
+                            <button type="submit" 
+                                class="px-6 py-2 {{ ($jumlahSelesaiDieksekusi > 0 && $jumlahSiapEksekusi == 0) ? 'bg-emerald-600 hover:bg-emerald-700 shadow-emerald-200 animate-pulse text-white' : 'bg-slate-300 text-slate-500 cursor-not-allowed' }} rounded-xl text-[11px] font-black transition shadow-lg uppercase tracking-wider flex items-center gap-2"
+                                {{ ($jumlahSelesaiDieksekusi == 0 || $jumlahSiapEksekusi > 0) ? 'disabled' : '' }}>
+                                
+                                @if($jumlahSiapEksekusi > 0)
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path></svg>
+                                    Selesaikan {{ $jumlahSiapEksekusi }} Eksekusi
+                                @elseif($jumlahSelesaiDieksekusi == 0)
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path></svg>
+                                    Belum Ada Eksekusi
+                                @else
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"></path></svg>
+                                    Selesai (Bersihkan Meja)
+                                @endif
+                            </button>
+                        </form>
+                    @endif
+
                     {{-- 1. TOMBOL KAPUSKESMAS (HANYA ACC) --}}
                     @if($isKapus)
                         @if($jumlahBelumAcc > 0)
@@ -146,108 +174,111 @@
                 </thead>
                 <tbody class="divide-y divide-slate-100">
                     @forelse($patients as $p)
-                    <tr class="hover:bg-red-50/30 transition-colors group">
-                        <td class="px-8 py-6">
-                            <div class="font-black text-slate-800 uppercase text-base">{{ $p->nama_pasien }}</div>
-                            <div class="flex items-center gap-2 mt-1">
-                                <span class="px-2 py-0.5 bg-slate-100 text-slate-600 rounded-md font-mono font-bold text-[11px] tracking-tighter">RM: {{ $p->no_rm }}</span>
-                            </div>
-                        </td>
-                        <td class="px-8 py-6">
-                            <div class="font-bold text-slate-600">{{ $p->lastVisit ? $p->lastVisit->tgl_kunjungan->format('d/m/Y') : '-' }}</div>
-                            <div class="text-[10px] text-slate-400 mt-0.5">
-                                {{ $p->lastVisit ? $p->lastVisit->tgl_kunjungan->diffForHumans() : '' }}
-                            </div>
-                        </td>
-                        <td class="px-8 py-6 text-center">
-                            @if($p->manual_status === 'dimusnahkan')
-                                <span class="inline-flex items-center gap-1.5 px-3 py-1 bg-emerald-50 text-emerald-600 rounded-full text-[10px] font-black border border-emerald-100 uppercase tracking-tighter">
-                                    Dimusnahkan
-                                </span>
-                            @elseif($p->status_approval == 1)
-                                <span class="inline-flex items-center gap-1.5 px-3 py-1 bg-blue-50 text-blue-600 rounded-full text-[10px] font-black border border-blue-100 uppercase tracking-tighter">
-                                    Sudah Di-ACC
-                                </span>
-                            @else
-                                <span class="inline-flex items-center gap-1.5 px-3 py-1 bg-amber-50 text-amber-600 rounded-full text-[10px] font-black border border-amber-100 uppercase tracking-tighter">
-                                    Menunggu ACC
-                                </span>
-                            @endif
-                        </td>
-                        
-                        {{-- KOLOM AKSI EKSEKUSI (PER BARIS) --}}
-                        <td class="px-8 py-6 text-center">
-                            @if($p->manual_status === 'dimusnahkan')
-                                {{-- 1. TAMPILAN JIKA SUDAH SELESAI DIMUSNAHKAN --}}
-                                <div class="flex flex-col items-center gap-1">
-                                    <span class="px-3 py-1 bg-emerald-100 text-emerald-700 rounded-full text-[10px] font-black border border-emerald-200 uppercase tracking-widest">
-                                        Selesai Dimusnahkan
-                                    </span>
-                                    <small class="text-[9px] text-slate-400 italic">Siap dicetak di Laporan BA</small>
+                        {{-- Sembunyikan secara visual jika sudah di-approve final (status=2) --}}
+                        @if($p->status_approval != 2)
+                        <tr class="hover:bg-red-50/30 transition-colors group">
+                            <td class="px-8 py-6">
+                                <div class="font-black text-slate-800 uppercase text-base">{{ $p->nama_pasien }}</div>
+                                <div class="flex items-center gap-2 mt-1">
+                                    <span class="px-2 py-0.5 bg-slate-100 text-slate-600 rounded-md font-mono font-bold text-[11px] tracking-tighter">RM: {{ $p->no_rm }}</span>
                                 </div>
-
-                            @elseif($p->status_approval == 1)
-                                {{-- 2. TAMPILAN JIKA SUDAH DI-ACC (SIAP EKSEKUSI FORM) --}}
-                                @if($isPetugas)
-                                    <form action="{{ route('eksekusi.selesai', $p->id) }}" method="POST" enctype="multipart/form-data" class="flex flex-col gap-2 items-center w-48 mx-auto">
-                                        @csrf
-                                        <select name="status_nilai_guna" required class="w-full text-[10px] p-2 border border-slate-200 rounded-md bg-slate-50 font-bold"
-                                            onchange="
-                                                let area = document.getElementById('up_area_{{ $p->id }}');
-                                                let inp = document.getElementById('file_{{ $p->id }}');
-                                                if(this.value === 'ada') { area.style.display = 'block'; inp.required = true; }
-                                                else { area.style.display = 'none'; inp.required = false; }
-                                            ">
-                                            <option value="" disabled selected>-- Ada Nilai Guna? --</option>
-                                            <option value="ada">Ada (Wajib Upload)</option>
-                                            <option value="tidak">Tidak Ada</option>
-                                        </select>
-
-                                        <div id="up_area_{{ $p->id }}" style="display: none;" class="w-full">
-                                            <input type="file" id="file_{{ $p->id }}" name="file_nilai_guna" class="w-full text-[10px] text-slate-500">
-                                        </div>
-
-                                        <button type="submit" class="w-full px-3 py-1.5 bg-emerald-500 text-white rounded-lg text-[10px] font-black hover:bg-emerald-600 transition shadow-md">
-                                            Selesaikan Eksekusi
-                                        </button>
-                                    </form>
-
-                                    {{-- TOMBOL KOREKSI FISIK RAK --}}
-                                    <form action="{{ route('eksekusi.koreksi', $p->id) }}" method="POST" onsubmit="return confirm('KOREKSI: Kembalikan berkas ini ke Gudang Inaktif? (Membatalkan ACC)')" class="mt-3">
-                                        @csrf
-                                        <button type="submit" class="text-[9px] font-bold text-red-500 hover:text-red-700 underline decoration-dotted transition flex items-center justify-center gap-1 mx-auto w-full">
-                                            <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-                                            Koreksi (Batal Eksekusi)
-                                        </button>
-                                    </form>
+                            </td>
+                            <td class="px-8 py-6">
+                                <div class="font-bold text-slate-600">{{ $p->lastVisit ? $p->lastVisit->tgl_kunjungan->format('d/m/Y') : '-' }}</div>
+                                <div class="text-[10px] text-slate-400 mt-0.5">
+                                    {{ $p->lastVisit ? $p->lastVisit->tgl_kunjungan->diffForHumans() : '' }}
+                                </div>
+                            </td>
+                            <td class="px-8 py-6 text-center">
+                                @if($p->manual_status === 'dimusnahkan')
+                                    <span class="inline-flex items-center gap-1.5 px-3 py-1 bg-emerald-50 text-emerald-600 rounded-full text-[10px] font-black border border-emerald-100 uppercase tracking-tighter">
+                                        Dimusnahkan
+                                    </span>
+                                @elseif($p->status_approval == 1)
+                                    <span class="inline-flex items-center gap-1.5 px-3 py-1 bg-blue-50 text-blue-600 rounded-full text-[10px] font-black border border-blue-100 uppercase tracking-tighter">
+                                        Sudah Di-ACC
+                                    </span>
                                 @else
-                                    <span class="text-[10px] font-bold text-slate-400">Menunggu Eksekusi Petugas</span>
+                                    <span class="inline-flex items-center gap-1.5 px-3 py-1 bg-amber-50 text-amber-600 rounded-full text-[10px] font-black border border-amber-100 uppercase tracking-tighter">
+                                        Menunggu ACC
+                                    </span>
                                 @endif
+                            </td>
+                            
+                            {{-- KOLOM AKSI EKSEKUSI (PER BARIS) --}}
+                            <td class="px-8 py-6 text-center">
+                                @if($p->manual_status === 'dimusnahkan')
+                                    {{-- 1. TAMPILAN JIKA SUDAH SELESAI DIMUSNAHKAN --}}
+                                    <div class="flex flex-col items-center gap-1">
+                                        <span class="px-3 py-1 bg-emerald-100 text-emerald-700 rounded-full text-[10px] font-black border border-emerald-200 uppercase tracking-widest">
+                                            Selesai Dimusnahkan
+                                        </span>
+                                        <small class="text-[9px] text-slate-400 italic">Siap dicetak di Laporan BA</small>
+                                    </div>
 
-                            @else
-                                {{-- 3. TAMPILAN JIKA BELUM ACC (TERKUNCI + TOMBOL BATAL USUL) --}}
-                                <div class="flex flex-col items-center gap-2">
-                                    @if($isKapus)
-                                        <span class="px-4 py-1.5 bg-amber-100 text-amber-700 rounded-lg text-[10px] font-black border border-amber-200">
-                                            Menunggu ACC Anda ☝️
-                                        </span>
-                                    @else
-                                        <span class="px-4 py-1.5 bg-slate-100 text-slate-400 rounded-lg text-[10px] font-black border border-slate-200 flex items-center gap-1.5">
-                                            <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path></svg>
-                                            Terkunci (Butuh ACC)
-                                        </span>
-                                        
-                                        <form action="{{ route('eksekusi.batal', $p->id) }}" method="POST" onsubmit="return confirm('Kembalikan berkas ini ke Gudang Inaktif?')">
+                                @elseif($p->status_approval == 1)
+                                    {{-- 2. TAMPILAN JIKA SUDAH DI-ACC (SIAP EKSEKUSI FORM) --}}
+                                    @if($isPetugas)
+                                        <form action="{{ route('eksekusi.selesai', $p->id) }}" method="POST" enctype="multipart/form-data" class="flex flex-col gap-2 items-center w-48 mx-auto">
                                             @csrf
-                                            <button type="submit" class="text-[9px] font-bold text-red-400 hover:text-red-600 underline decoration-dotted transition">
-                                                Batal Usul Musnah
+                                            <select name="status_nilai_guna" required class="w-full text-[10px] p-2 border border-slate-200 rounded-md bg-slate-50 font-bold"
+                                                onchange="
+                                                    let area = document.getElementById('up_area_{{ $p->id }}');
+                                                    let inp = document.getElementById('file_{{ $p->id }}');
+                                                    if(this.value === 'ada') { area.style.display = 'block'; inp.required = true; }
+                                                    else { area.style.display = 'none'; inp.required = false; }
+                                                ">
+                                                <option value="" disabled selected>-- Ada Nilai Guna? --</option>
+                                                <option value="ada">Ada (Wajib Upload)</option>
+                                                <option value="tidak">Tidak Ada</option>
+                                            </select>
+
+                                            <div id="up_area_{{ $p->id }}" style="display: none;" class="w-full">
+                                                <input type="file" id="file_{{ $p->id }}" name="file_nilai_guna" class="w-full text-[10px] text-slate-500">
+                                            </div>
+
+                                            <button type="submit" class="w-full px-3 py-1.5 bg-emerald-500 text-white rounded-lg text-[10px] font-black hover:bg-emerald-600 transition shadow-md">
+                                                Selesaikan Eksekusi
                                             </button>
                                         </form>
+
+                                        {{-- TOMBOL KOREKSI FISIK RAK --}}
+                                        <form action="{{ route('eksekusi.koreksi', $p->id) }}" method="POST" onsubmit="return confirm('KOREKSI: Kembalikan berkas ini ke Gudang Inaktif? (Membatalkan ACC)')" class="mt-3">
+                                            @csrf
+                                            <button type="submit" class="text-[9px] font-bold text-red-500 hover:text-red-700 underline decoration-dotted transition flex items-center justify-center gap-1 mx-auto w-full">
+                                                <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                                                Koreksi (Batal Eksekusi)
+                                            </button>
+                                        </form>
+                                    @else
+                                        <span class="text-[10px] font-bold text-slate-400">Menunggu Eksekusi Petugas</span>
                                     @endif
-                                </div>
-                            @endif
-                        </td>
-                    </tr>
+
+                                @else
+                                    {{-- 3. TAMPILAN JIKA BELUM ACC (TERKUNCI + TOMBOL BATAL USUL) --}}
+                                    <div class="flex flex-col items-center gap-2">
+                                        @if($isKapus)
+                                            <span class="px-4 py-1.5 bg-amber-100 text-amber-700 rounded-lg text-[10px] font-black border border-amber-200">
+                                                Menunggu ACC Anda ☝️
+                                            </span>
+                                        @else
+                                            <span class="px-4 py-1.5 bg-slate-100 text-slate-400 rounded-lg text-[10px] font-black border border-slate-200 flex items-center gap-1.5">
+                                                <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path></svg>
+                                                Terkunci (Butuh ACC)
+                                            </span>
+                                            
+                                            <form action="{{ route('eksekusi.batal', $p->id) }}" method="POST" onsubmit="return confirm('Kembalikan berkas ini ke Gudang Inaktif?')">
+                                                @csrf
+                                                <button type="submit" class="text-[9px] font-bold text-red-400 hover:text-red-600 underline decoration-dotted transition">
+                                                    Batal Usul Musnah
+                                                </button>
+                                            </form>
+                                        @endif
+                                    </div>
+                                @endif
+                            </td>
+                        </tr>
+                        @endif
                     @empty
                     <tr>
                         <td colspan="4" class="px-8 py-24 text-center">

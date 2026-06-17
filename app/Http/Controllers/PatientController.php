@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Patient;
 use App\Models\Visit;
+use App\Models\RetentionAction;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -28,68 +29,71 @@ class PatientController extends Controller
         // 1. Query Dasar
         $query = Patient::with('lastVisit')->latest();
 
-        // 2. Logika Pencarian Nama/RM
+        // 2. Logika Pencarian Nama/RM/NIK
         if ($request->filled('search')) {
             $search = $request->search;
             $query->where(function($q) use ($search) {
                 $q->where('nama_pasien', 'like', "%{$search}%")
-                  ->orWhere('no_rm', 'like', "%{$search}%");
+                  ->orWhere('no_rm', 'like', "%{$search}%")
+                  ->orWhere('nik', 'like', "%{$search}%");
             });
         }
 
-        // 3. LOGIKA FILTER STATUS (YANG SUDAH DIPERBAIKI)
+        // 3. LOGIKA FILTER STATUS
         if ($request->filled('status')) {
             $status = $request->status;
-            $now = now();
 
-            // A. Filter Status Manual (Gudang/Pemilahan/Musnah)
             if ($status === 'digudang') {
                 $query->where('manual_status', 'digudang');
-                
             } elseif ($status === 'pemilahan') {
                 $query->where('manual_status', 'pemilahan');
-                
             } elseif ($status === 'dimusnahkan') {
                  $query->where('manual_status', 'dimusnahkan');
-
             } else {
-                // B. Filter Status Otomatis (Aktif/Inaktif/Siap Musnah)
-                // PERBAIKAN PENTING DI SINI:
-                // Kita gunakan logic "WHERE NOT IN" agar data yang manual_status-nya NULL, String Kosong, atau Spasi tetap terbaca.
-                
+                // KECUALIKAN yang sudah diproses agar tidak tumpang tindih
                 $query->where(function($q) {
                     $q->whereNotIn('manual_status', ['digudang', 'pemilahan', 'siap_musnah', 'dimusnahkan'])
                       ->orWhereNull('manual_status');
                 });
 
-                // Filter Berdasarkan Tanggal
                 if ($status === 'Aktif') {
-                    // Kunjungan < 2 Tahun
-                    $query->whereHas('lastVisit', function($q) use ($now) {
-                        $q->where('tgl_kunjungan', '>', $now->subYears(2));
+                    $query->where(function($q) {
+                        $q->whereHas('lastVisit', function($q2) {
+                            $q2->where('tgl_kunjungan', '>', now()->subYears(2));
+                        })->orWhereDoesntHave('lastVisit');
                     });
                     
                 } elseif ($status === 'Inaktif') {
-                    // Kunjungan Antara 2 - 5 Tahun
-                    // Misri (2022) akan masuk di sini karena > 2021 dan <= 2024 (Jika sekarang 2026)
-                    $query->whereHas('lastVisit', function($q) use ($now) {
-                        $q->where('tgl_kunjungan', '<=', $now->copy()->subYears(2))
-                          ->where('tgl_kunjungan', '>', $now->copy()->subYears(5));
+                    $query->whereHas('lastVisit', function($q) {
+                        $q->where('tgl_kunjungan', '<=', now()->subYears(2))
+                          ->where('tgl_kunjungan', '>', now()->subYears(4)); 
                     });
 
                 } elseif ($status === 'Siap Musnah') {
-                    // Kunjungan > 5 Tahun
-                    $query->whereHas('lastVisit', function($q) use ($now) {
-                        $q->where('tgl_kunjungan', '<=', $now->subYears(5));
+                    $query->whereHas('lastVisit', function($q) {
+                        $q->where('tgl_kunjungan', '<=', now()->subYears(4));
                     });
                 }
             }
         }
 
-        $patients = $query->paginate(10);
+        // 4. MENGATUR JUMLAH DATA PER HALAMAN (CARA PALING OPTIMAL)
+        $perPageRequest = $request->input('per_page', 10);
+        
+        if ($perPageRequest === 'all') {
+            // Jika 'all', hitung total yang ada di query, minimal 1
+            $totalData = $query->count();
+            $perPage = $totalData > 0 ? $totalData : 1; 
+        } else {
+            // Pastikan menjadi integer
+            $perPage = (int) $perPageRequest;
+        }
+
+        // Eksekusi paginasi langsung dari database, sangat ringan untuk RAM Server!
+        $patients = $query->paginate($perPage);
 
         return view('patients.index', compact('patients'));
-    } 
+    }
 
     public function show($id)
     {
@@ -114,7 +118,8 @@ class PatientController extends Controller
         if ($request->has('catat_kunjungan')) {
             $rules['tgl_kunjungan'] = 'required|date';
             $rules['poli_tujuan']   = 'required|string';
-            $rules['pembayaran']    = 'required|in:BPJS,UMUM';
+            $rules['nama_dokter']   = 'required|string';
+            $rules['diagnosa']      = 'required|string';
         }
 
         $request->validate($rules);
@@ -132,7 +137,8 @@ class PatientController extends Controller
                     'patient_id'    => $patient->id,
                     'tgl_kunjungan' => $request->tgl_kunjungan,
                     'poli_tujuan'   => $request->poli_tujuan,
-                    'pembayaran'    => $request->pembayaran,
+                    'dokter'        => $request->nama_dokter,
+                    'diagnosa'      => $request->diagnosa,
                     'user_id'       => auth()->id(),
                 ]);
             }
@@ -142,7 +148,6 @@ class PatientController extends Controller
 
         } catch (\Exception $e) {
             DB::rollBack();
-            Log::error("Error Store Patient: " . $e->getMessage());
             return back()->withErrors(['error' => 'Gagal menyimpan: ' . $e->getMessage()])->withInput();
         }
     }
@@ -152,27 +157,35 @@ class PatientController extends Controller
     public function update(Request $request, $id) 
     {
         $patient = Patient::findOrFail($id);
+        
         $request->validate([
-            'no_rm' => 'required|string|unique:patients,no_rm,'.$id,
-            'nama_pasien' => 'required',
-            'tgl_lahir' => 'required|date',
+            'no_rm'         => 'required|string|unique:patients,no_rm,'.$id,
+            'nama_pasien'   => 'required',
+            'tgl_lahir'     => 'required|date',
+            'jenis_kelamin' => 'required|in:L,P',
+            'nik'           => 'nullable|string',
         ]);
+
         $patient->update($request->only(['no_rm', 'nik', 'nama_pasien', 'tgl_lahir', 'jenis_kelamin', 'alamat_lengkap']));
         
-        // Reset status manual jika ada update kunjungan
         if ($request->filled('tgl_kunjungan_terakhir')) {
             $patient->update(['manual_status' => null]); 
             $lastVisit = $patient->lastVisit;
             $dataVisit = [
                 'tgl_kunjungan' => $request->tgl_kunjungan_terakhir,
                 'poli_tujuan'   => $request->poli_tujuan ?? 'Umum',
-                'pembayaran'    => $request->pembayaran ?? 'UMUM',
+                'dokter'        => $request->nama_dokter ?? 'Admin Update',
+                'diagnosa'      => $request->diagnosa_terakhir ?? 'Update Manual',
             ];
 
             if ($lastVisit) {
                 $lastVisit->update($dataVisit);
             } else {
-                Visit::create(array_merge($dataVisit, ['no_registrasi' => 'MAN-'.time(), 'patient_id' => $patient->id, 'user_id' => auth()->id()]));
+                Visit::create(array_merge($dataVisit, [
+                    'no_registrasi' => 'MAN-'.time(), 
+                    'patient_id' => $patient->id, 
+                    'user_id' => auth()->id()
+                ]));
             }
         }
         return redirect()->route('patients.index')->with('success', 'Data diperbarui!');
@@ -180,8 +193,10 @@ class PatientController extends Controller
 
     public function destroy($id) {
         $p = Patient::findOrFail($id);
+        RetentionAction::where('patient_id', $id)->delete();
         $p->visits()->delete();
         $p->delete();
+        
         return back()->with('success', 'Data dihapus.');
     }
 
@@ -198,8 +213,17 @@ class PatientController extends Controller
     public function bulkAction(Request $request) {
         if (!$request->has('ids') || $request->action_type !== 'hapus') return back();
         $ids = explode(',', $request->ids);
-        Visit::whereIn('patient_id', $ids)->delete();
-        Patient::whereIn('id', $ids)->delete();
-        return back()->with('success', count($ids) . ' data dihapus.');
+        
+        try {
+            DB::beginTransaction();
+            RetentionAction::whereIn('patient_id', $ids)->delete();
+            Visit::whereIn('patient_id', $ids)->delete();
+            Patient::whereIn('id', $ids)->delete();
+            DB::commit();
+            return back()->with('success', count($ids) . ' data dihapus permanen.');
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return back()->with('error', 'Gagal hapus massal: ' . $e->getMessage());
+        }
     }
 }

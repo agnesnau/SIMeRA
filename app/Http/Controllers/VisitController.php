@@ -51,7 +51,21 @@ class VisitController extends Controller
         }
 
         $sort = $request->get('sort_order', 'desc');
-        $visits = $query->orderBy('tgl_kunjungan', $sort)->paginate(10);
+        
+        // -------------------------------------------------------------
+        // 4. MENGATUR JUMLAH DATA PER HALAMAN (DINAMIS)
+        // -------------------------------------------------------------
+        $perPageRequest = $request->input('per_page', 10);
+        
+        if ($perPageRequest === 'all') {
+            $totalData = $query->count();
+            $perPage = $totalData > 0 ? $totalData : 1; 
+        } else {
+            $perPage = (int) $perPageRequest;
+        }
+
+        // Eksekusi paginasi optimal
+        $visits = $query->orderBy('tgl_kunjungan', $sort)->paginate($perPage);
 
         return view('visits.index', compact('visits'));
     }
